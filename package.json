@@ -1,0 +1,16 @@
+{
+  "name": "stellar-agent-wallet",
+  "version": "1.0.0",
+  "description": "AI agent wallet on Stellar testnet: OpenZeppelin smart account + 5 USDC/day spending-limit policy",
+  "scripts": {
+    "build": "stellar contract build",
+    "demo": "node scripts/demo.mjs && node scripts/report.mjs",
+    "report": "node scripts/report.mjs"
+  },
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "@stellar/stellar-sdk": "^17.4.0"
+  },
+  "private": true
+}

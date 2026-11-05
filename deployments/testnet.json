@@ -1,0 +1,108 @@
+{
+  "network": "testnet",
+  "generated_at": "2026-11-05T13:24:49.150Z",
+  "accounts": {
+    "relayer": "GAXRVEG7WT4IXM7W22CQPAU3EJEYTPHSYCVNNCM4TIKA4IQGC24RNSRS",
+    "user": "GDRCJNZV2JNF2E4ZDOP2HH2UT3NR3VCB7D6YCAVYXPGUSWQS52MYLSSO",
+    "agent": "GA3B46QBK6XCI6JRXGUSOKG5GGMMKID2HU4SOGNREIKKE5B2PCU36IET",
+    "payee": "GB3WNAVXMVP6TDJ6CN3TVD5GO5LDZA52U7G44X76UQR7JAKXE6DAEBN6"
+  },
+  "contracts": {
+    "usdc_sac": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+    "ed25519_verifier": "CACX7VUUKW6MUJ5FCNHZRTK7ZXAAQ6RSHRGX24HNVNMX2TXMUKS4POZ7",
+    "spending_limit_policy": "CBTDPBAOKKRC4UYNQOHNKT63NL76RMD6W2HRQTMUIEGA6NLUQJVP4YJP",
+    "smart_account": "CDB4MZ72JM3KA35WHGWD33KA3HH5GSU6RGAO3RS2M7EAADPPCSOG75II"
+  },
+  "rejection": {
+    "simulation_error": "HostError: Error(Auth, InvalidAction)\n\nEvent log (newest first):\n   0: [Diagnostic Event] contract:CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA, topics:[error, Error(Auth, InvalidAction)], data:[\"failed account authentication with error\", CDB4MZ72JM3KA35WHGWD33KA3HH5GSU6RGAO3RS2M7EAADPPCSOG75II, Error(Contract, #3221)]\n   1: [Failed Diagnostic Event (not emitted)] contract:CDB4MZ72JM3KA35WHGWD33KA3HH5GSU6RGAO3RS2M7EAADPPCSOG75II, topics:[log], data:[\"VM call trapped with HostError\", __check_auth, Error(Contract, #3221)]\n   2: [Failed Diagnostic Event (not emitted)] contract:CDB4MZ72JM3KA35WHGWD33KA3HH5GSU6RGAO3RS2M7EAADPPCSOG75II, topics:[error, Error(Contract, #3221)], data:\"escalating error to VM trap from failed host function call: call\"\n   3: [Failed Diagnostic Event (not emitted)] contract:CDB4MZ72JM3KA35WHGWD33KA3HH5GSU6RGAO3RS2M7EAADPPCSOG75II, topics:[error, Error(Contract, #3221)], data:[\"contract call failed\", enforce, [[Contract, {args: [CDB4MZ72JM3KA35WHGWD33KA3HH5GSU6RGAO3RS2M7EAADPPCSOG75II, GB3WNAVXMVP6TDJ6CN3TVD5GO5LDZA52U7G44X76UQR7JAKXE6DAEBN6, 100000000], contract: CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA, fn_name: transfer}], [[External, CACX7VUUKW6MUJ5FCNHZRTK7ZXAAQ6RSHRGX24HNVNMX2TXMUKS4POZ7, Bytes(361e7a0157ae247931b9a92728dd3198c5207a3d392719b12214a2743a78a9bf)]], {context_type: [CallContract, CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA], id: 1, name: \"agent-usdc\", policies: [CBTDPBAOKKRC4UYNQOHNKT63NL76RMD6W2HRQTMUIEGA6NLUQJVP4YJP], policy_ids: [0], signer_ids: [1], signers: [[External, CACX7VUUKW6MUJ5FCNHZRTK7ZXAAQ6RSHRGX24HNVNMX2TXMUKS4POZ7, Bytes(361e7a0157ae247931b9a92728dd3198c5207a3d392719b12214a2743a78a9bf)]], valid_until: Void}, CDB4MZ72JM3KA35WHGWD33KA3HH5GSU6RGAO3RS2M7EAADPPCSOG75II]]\n   4: [Failed Diagnostic Event (not emitted)] contract:CBTDPBAOKKRC4UYNQOHNKT63NL76RMD6W2HRQTMUIEGA6NLUQJVP4YJP, topics:[log], data:[\"VM call trapped with HostError\", enforce, Error(Contract, #3221)]\n   5: [Failed Diagnostic Event (not emitted)] contract:CBTDPBAOKKRC4UYNQOHNKT63NL76RMD6W2HRQTMUIEGA6NLUQJVP4YJP, topics:[error, Error(Contract, #3221)], data:\"escalating error to VM trap from failed host function call: fail_with_error\"\n   6: [Failed Diagnostic Event (not emitted)] contract:CBTDPBAOKKRC4UYNQOHNKT63NL76RMD6W2HRQTMUIEGA6NLUQJVP4YJP, topics:[error, Error(Contract, #3221)], data:[\"failing with contract error\", 3221]\n   7: [Failed Diagnostic Event (not emitted)] contract:CDB4MZ72JM3KA35WHGWD33KA3HH5GSU6RGAO3RS2M7EAADPPCSOG75II, topics:[fn_call, CBTDPBAOKKRC4UYNQOHNKT63NL76RMD6W2HRQTMUIEGA6NLUQJVP4YJP, enforce], data:[[Contract, {args: [CDB4MZ72JM3KA35WHGWD33KA3HH5GSU6RGAO3RS2M7EAADPPCSOG75II, GB3WNAVXMVP6TDJ6CN3TVD5GO5LDZA52U7G44X76UQR7JAKXE6DAEBN6, 100000000], contract: CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA, fn_name: transfer}], [[External, CACX7VUUKW6MUJ5FCNHZRTK7ZXAAQ6RSHRGX24HNVNMX2TXMUKS4POZ7, Bytes(361e7a0157ae247931b9a92728dd3198c5207a3d392719b12214a2743a78a9bf)]], {context_type: [CallContract, CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA], id: 1, name: \"agent-usdc\", policies: [CBTDPBAOKKRC4UYNQOHNKT63NL76RMD6W2HRQTMUIEGA6NLUQJVP4YJP], policy_ids: [0], signer_ids: [1], signers: [[External, CACX7VUUKW6MUJ5FCNHZRTK7ZXAAQ6RSHRGX24HNVNMX2TXMUKS4POZ7, Bytes(361e7a0157ae247931b9a92728dd3198c5207a3d392719b12214a2743a78a9bf)]], valid_until: Void}, CDB4MZ72JM3KA35WHGWD33KA3HH5GSU6RGAO3RS2M7EAADPPCSOG75II]\n   8: [Failed Diagnostic Event (not emitted)] contract:CACX7VUUKW6MUJ5FCNHZRTK7ZXAAQ6RSHRGX24HNVNMX2TXMUKS4POZ7, topics:[fn_return, verify], data:true\n   9: [Failed Diagnostic Event (not emitted)] contract:CDB4MZ72JM3KA35WHGWD33KA3HH5GSU6RGAO3RS2M7EAADPPCSOG75II, topics:[fn_call, CACX7VUUKW6MUJ5FCNHZRTK7ZXAAQ6RSHRGX24HNVNMX2TXMUKS4POZ7, verify], data:[Bytes(d490d5b717a4310c28c06e5752a9df9e042b6ee64f4b5571dd9722fcafc66fe9), Bytes(361e7a0157ae247931b9a92728dd3198c5207a3d392719b12214a2743a78a9bf), Bytes(46bfb42a5d3b7e63f9930a98156b492959b9fd8251f67c97ae4bbf466aff65237e830fda308cd7275547170fe96a26b80160386f1193eb178cc3697a2d1ae503)]\n   10: [Diagnostic Event] contract:CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA, topics:[fn_call, CDB4MZ72JM3KA35WHGWD33KA3HH5GSU6RGAO3RS2M7EAADPPCSOG75II, __check_auth], data:[Bytes(68cb32cbaf7a9fddeb8e44461b899ec018740a86e8bf4d471013a06e61f17b6d), {context_rule_ids: [1], signers: {[External, CACX7VUUKW6MUJ5FCNHZRTK7ZXAAQ6RSHRGX24HNVNMX2TXMUKS4POZ7, Bytes(361e7a0157ae247931b9a92728dd3198c5207a3d392719b12214a2743a78a9bf)]: Bytes(46bfb42a5d3b7e63f9930a98156b492959b9fd8251f67c97ae4bbf466aff65237e830fda308cd7275547170fe96a26b80160386f1193eb178cc3697a2d1ae503)}}, [[Contract, {args: [CDB4MZ72JM3KA35WHGWD33KA3HH5GSU6RGAO3RS2M7EAADPPCSOG75II, GB3WNAVXMVP6TDJ6CN3TVD5GO5LDZA52U7G44X76UQR7JAKXE6DAEBN6, 100000000], contract: CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA, fn_name: transfer}]]]\n   11: [Diagnostic Event] topics:[fn_call, CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA, transfer], data:[CDB4MZ72JM3KA35WHGWD33KA3HH5GSU6RGAO3RS2M7EAADPPCSOG75II, GB3WNAVXMVP6TDJ6CN3TVD5GO5LDZA52U7G44X76UQR7JAKXE6DAEBN6, 100000000]\n",
+    "onchain_error": "{\"tx_failed\":[{\"op_inner\":{\"invoke_host_function\":\"trapped\"}}]} | CBTDPBAOKKRC4UYNQOHNKT63NL76RMD6W2HRQTMUIEGA6NLUQJVP4YJP Error(Contract, #3221) failing with contract error | CBTDPBAOKKRC4UYNQOHNKT63NL76RMD6W2HRQTMUIEGA6NLUQJVP4YJP Error(Contract, #3221) escalating error to VM trap from failed host function call: fail_with_error | CDB4MZ72JM3KA35WHGWD33KA3HH5GSU6RGAO3RS2M7EAADPPCSOG75II Error(Contract, #3221) contract call failed | CDB4MZ72JM3KA35WHGWD33KA3HH5GSU6RGAO3RS2M7EAADPPCSOG75II Error(Contract, #3221) escalating error to VM trap from failed host function call: call | CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA Error({\"auth\":\"invalid_action\"}) failed account authentication with error"
+  },
+  "within_limit_after_policy": true,
+  "transactions": [
+    {
+      "step": "upload ed25519 verifier wasm",
+      "hash": "56b033215b338af131c608504de0431b3c3ca206038759b73f084a296ac922c7",
+      "status": "SUCCESS",
+      "url": "https://stellar.expert/explorer/testnet/tx/56b033215b338af131c608504de0431b3c3ca206038759b73f084a296ac922c7"
+    },
+    {
+      "step": "upload spending-limit policy wasm",
+      "hash": "8553786bcfc72ff0a363b43169d2ca8e6ad35ca73033d1e9d44356a7c5d19244",
+      "status": "SUCCESS",
+      "url": "https://stellar.expert/explorer/testnet/tx/8553786bcfc72ff0a363b43169d2ca8e6ad35ca73033d1e9d44356a7c5d19244"
+    },
+    {
+      "step": "upload smart account wasm",
+      "hash": "7876eb0b4ab2fbe634a8760ca0c5f03b99396a34e66f40cccbf78abaf8212304",
+      "status": "SUCCESS",
+      "url": "https://stellar.expert/explorer/testnet/tx/7876eb0b4ab2fbe634a8760ca0c5f03b99396a34e66f40cccbf78abaf8212304"
+    },
+    {
+      "step": "deploy ed25519 verifier",
+      "hash": "39eacb0ac6891b1b0b42782639635f4ef91ebec547a8484e970caa1b4bb3538a",
+      "status": "SUCCESS",
+      "url": "https://stellar.expert/explorer/testnet/tx/39eacb0ac6891b1b0b42782639635f4ef91ebec547a8484e970caa1b4bb3538a"
+    },
+    {
+      "step": "deploy spending-limit policy",
+      "hash": "24c650f5b36fac7b656d58f363c236a72e2a1855ff7cbe0ec0360f4c17c7bd33",
+      "status": "SUCCESS",
+      "url": "https://stellar.expert/explorer/testnet/tx/24c650f5b36fac7b656d58f363c236a72e2a1855ff7cbe0ec0360f4c17c7bd33"
+    },
+    {
+      "step": "deploy smart account (owner = user's ed25519 key, rule #0 Default)",
+      "hash": "0557e5786fe2f7850011a8b209ed299fe0192cbdeb036a3f3d2d78f68df6f07a",
+      "status": "SUCCESS",
+      "url": "https://stellar.expert/explorer/testnet/tx/0557e5786fe2f7850011a8b209ed299fe0192cbdeb036a3f3d2d78f68df6f07a"
+    },
+    {
+      "step": "owner adds context rule #1: CallContract(USDC) signed by the agent key",
+      "hash": "4d6aeb87510fda137e858c5e905efa6efa29b06a04e8ed01975f9109ad9ed0b9",
+      "status": "SUCCESS",
+      "url": "https://stellar.expert/explorer/testnet/tx/4d6aeb87510fda137e858c5e905efa6efa29b06a04e8ed01975f9109ad9ed0b9"
+    },
+    {
+      "step": "payee: trustline to USDC",
+      "hash": "44bab139e3d7f078ca0b6569634d3daa928df7969b8ea32934dcf57b0ad27676",
+      "status": "SUCCESS",
+      "url": "https://stellar.expert/explorer/testnet/tx/44bab139e3d7f078ca0b6569634d3daa928df7969b8ea32934dcf57b0ad27676"
+    },
+    {
+      "step": "user: trustline + buy 10 Circle testnet USDC for XLM on the testnet DEX",
+      "hash": "6bacc6ed6eba06c9d3815ff11cc7b6e55294a5d2c0e2f1c465f60ecd10392b96",
+      "status": "SUCCESS",
+      "url": "https://stellar.expert/explorer/testnet/tx/6bacc6ed6eba06c9d3815ff11cc7b6e55294a5d2c0e2f1c465f60ecd10392b96"
+    },
+    {
+      "step": "user tops up agent wallet with 10 USDC",
+      "hash": "9dd3034fc8ae72ba7c75ebb7080a0ce68611ba48ca6109f8a72ab8f9192124c0",
+      "status": "SUCCESS",
+      "url": "https://stellar.expert/explorer/testnet/tx/9dd3034fc8ae72ba7c75ebb7080a0ce68611ba48ca6109f8a72ab8f9192124c0"
+    },
+    {
+      "step": "agent pays 1 USDC to payee",
+      "hash": "1835b7027e4f40fe9b0e02629e1a5275d1ae7e39d34bb3b88e6b80ab718825a3",
+      "status": "SUCCESS",
+      "url": "https://stellar.expert/explorer/testnet/tx/1835b7027e4f40fe9b0e02629e1a5275d1ae7e39d34bb3b88e6b80ab718825a3"
+    },
+    {
+      "step": "owner adds spending-limit policy (5 USDC / 17280 ledgers) to rule #1",
+      "hash": "eea6dc3a9bfb0fa3734ff463cb14332df44e9bc4331ad8cee6fe95a7a4565a12",
+      "status": "SUCCESS",
+      "url": "https://stellar.expert/explorer/testnet/tx/eea6dc3a9bfb0fa3734ff463cb14332df44e9bc4331ad8cee6fe95a7a4565a12"
+    },
+    {
+      "step": "agent tries to pay 10 USDC (must be rejected)",
+      "hash": "1c3662a09e4fcac303cf0014f2772d8ff3402915d3ecf25187514d01f8f00505",
+      "status": "FAILED",
+      "url": "https://stellar.expert/explorer/testnet/tx/1c3662a09e4fcac303cf0014f2772d8ff3402915d3ecf25187514d01f8f00505",
+      "error": "{\"tx_failed\":[{\"op_inner\":{\"invoke_host_function\":\"trapped\"}}]} | CBTDPBAOKKRC4UYNQOHNKT63NL76RMD6W2HRQTMUIEGA6NLUQJVP4YJP Error(Contract, #3221) failing with contract error | CBTDPBAOKKRC4UYNQOHNKT63NL76RMD6W2HRQTMUIEGA6NLUQJVP4YJP Error(Contract, #3221) escalating error to VM trap from failed host function call: fail_with_error | CDB4MZ72JM3KA35WHGWD33KA3HH5GSU6RGAO3RS2M7EAADPPCSOG75II Error(Contract, #3221) contract call failed | CDB4MZ72JM3KA35WHGWD33KA3HH5GSU6RGAO3RS2M7EAADPPCSOG75II Error(Contract, #3221) escalating error to VM trap from failed host function call: call | CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA Error({\"auth\":\"invalid_action\"}) failed account authentication with error"
+    },
+    {
+      "step": "agent pays 2 USDC (within the limit, still allowed)",
+      "hash": "c89abcd1f2ca824f35778711bf07457c4ab0de449b49266681c8785ec3198a67",
+      "status": "SUCCESS",
+      "url": "https://stellar.expert/explorer/testnet/tx/c89abcd1f2ca824f35778711bf07457c4ab0de449b49266681c8785ec3198a67"
+    }
+  ]
+}
