@@ -326,6 +326,9 @@ try {
     await page.locator('#agent-panel [data-testid=panel-payments] li').first().waitFor({ timeout: T });
     const conv = await page.evaluate((id) => localStorage.getItem(`aw.conv.${id}`), agentId);
     assert(/^conv_/.test(conv || ''), `conversation id kept per agent: ${conv}`);
+    const quota = await text(page.locator('[data-testid=chat-quota]'));
+    assert(/^\d+ of 50 messages left today$/.test(quota), `chat quota line: ${quota}`);
+    eq(await page.locator('#composer-input').getAttribute('maxlength'), '4000', 'composer maxlength from config');
   });
 
   await step('5b. chat: "Pay 10" -> red spending_limit_exceeded card', async () => {

@@ -271,6 +271,7 @@ async function changeLimit(a) {
     title: `Change the limit of ${a.name}`,
     prepare: () => api.setLimit(a.id, v),
     okText: () => `The daily limit of "${a.name}" is now ${fmtAmount(v)} USDC.`,
+    done: () => expectUsdc({ agents: true }),
     after: () => refreshAll(),
   });
 }
@@ -280,6 +281,7 @@ function revoke(a) {
     title: `Revoke ${a.name}`,
     prepare: () => api.revoke(a.id),
     okText: () => `"${a.name}" is revoked. Its signatures stop passing within a few seconds.`,
+    done: () => expectUsdc({ agents: true }),
     after: () => refreshAll(),
   });
 }
@@ -289,6 +291,7 @@ function restore(a) {
     title: `Restore ${a.name}`,
     prepare: () => api.restore(a.id),
     okText: () => `"${a.name}" is active again.`,
+    done: () => expectUsdc({ agents: true }),
     after: () => refreshAll(),
   });
 }
@@ -323,6 +326,7 @@ function addAgent(form) {
       form.reset();
       form.elements.daily_limit.value = '5';
       if (r.api_key) view.extra.replaceChildren(apiKeyReveal((r.agent && r.agent.name) || name, r.api_key));
+      expectUsdc({ agents: true });
     },
     after: () => refreshAll(),
   }).then((resp) => { if (!resp) refreshAll(); });

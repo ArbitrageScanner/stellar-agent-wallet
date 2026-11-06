@@ -164,7 +164,15 @@ function meJSON(u) {
     address: u.address, account: u.account, account_deployed: u.deployed,
     wallet: { xlm: fmt(u.wallet.xlm), usdc: fmt(u.wallet.usdc), usdc_trustline: u.wallet.trustline },
     account_url: `${EXPLORER}/contract/${u.account}`,
+    chat: chatUsage(u),
   };
+}
+
+const CHAT_DAILY = Number(process.env.MOCK_CHAT_DAILY ?? 50);
+function chatUsage(u) {
+  const d = new Date();
+  const resets = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1)).toISOString();
+  return { used: u.chatUsed || 0, limit: CHAT_DAILY, resets_at: resets };
 }
 
 function accountJSON(u) {
@@ -188,6 +196,7 @@ function configJSON() {
     network: 'testnet', network_passphrase: PASSPHRASE, explorer: EXPLORER, usdc_contract: USDC,
     default_model: DEFAULT_MODEL, llm_configured: LLM, approval_threshold: String(APPROVAL_THRESHOLD),
     dev_wallet: DEV_WALLET, demo_payee: PAYEE, period_ledgers: PERIOD, ledger_seconds: LEDGER_SECONDS,
+    limits: { chat_max_chars: 4000, chat_daily: CHAT_DAILY },
   };
 }
 
@@ -532,6 +541,10 @@ async function handleChat(req, res, u) {
     conv = { id: `conv_${hex(6)}`, owner: u.address, agent_id: a.id, messages: [], approvals: new Map() };
     conversations.set(conv.id, conv);
   }
+  if ((u.chatUsed || 0) >= CHAT_DAILY) {
+    throw new ApiErr(429, 'daily_limit_reached', `you have used all ${CHAT_DAILY} chat messages for today; they reset at midnight UTC`);
+  }
+  u.chatUsed = (u.chatUsed || 0) + 1;
   res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive', 'x-accel-buffering': 'no' });
   const ctx = turnContext(res, conv);
   res.on('close', () => { ctx.aborted = true; });
@@ -540,7 +553,7 @@ async function handleChat(req, res, u) {
     ctx.send('conversation', { id: conv.id });
     if (!LLM) ctx.send('error', { message: 'LLM_API_KEY is not set: the model is unavailable' });
     else { await ctx.sleep(250); await runTurn(ctx, conv, u, a, message); }
-    ctx.send('done', {});
+    ctx.send('done', { usage: chatUsage(u) });
     res.end();
   } catch (e) {
     if (!(e instanceof Aborted)) {

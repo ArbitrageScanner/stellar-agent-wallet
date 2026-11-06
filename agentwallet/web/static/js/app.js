@@ -218,6 +218,8 @@ async function main() {
   // Re-route when the deploy state changes (e.g. after "Create my agent wallet").
   on('me', () => { if (viewFor(route()) !== document.body.dataset.view) render(); });
   on('agents', () => { if (viewFor(route()) !== document.body.dataset.view) render(); });
+  const syncPill = document.getElementById('sync-pill');
+  on('sync', (v) => { syncPill.hidden = !v; });
   render();
 
   await loadConfig();

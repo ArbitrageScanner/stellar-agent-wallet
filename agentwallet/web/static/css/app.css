@@ -161,6 +161,11 @@ code, pre { font-family: var(--mono); font-size: 0.86em; }
 .tab.active { background: linear-gradient(var(--key), var(--key-2)); color: var(--ink); box-shadow: var(--keycap); }
 
 .user-area { display: flex; align-items: center; gap: var(--s2); margin-left: auto; }
+.chat-quota { padding: var(--s1) var(--s3) var(--s2); font-size: 13px; color: var(--muted); text-align: right; }
+.chat-quota.is-out { color: var(--bad, #b42318); text-align: left; }
+.sync-pill { display: inline-flex; align-items: center; gap: var(--s2); height: 36px; padding: 0 var(--s3); border-radius: 10px; color: var(--muted); font-size: 13px; white-space: nowrap; }
+.sync-pill[hidden] { display: none; }
+@media (max-width: 520px) { .sync-pill span:last-child { display: none; } }
 .user-chip { display: inline-flex; align-items: center; gap: var(--s2); height: 36px; padding: 0 var(--s3); border-radius: 10px; background: var(--slot); box-shadow: var(--sunk); color: var(--ink); font-size: 13px; }
 .user-chip code { font-size: 13px; }
 .user-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--led-ok); box-shadow: 0 0 6px var(--led-ok); flex: none; }

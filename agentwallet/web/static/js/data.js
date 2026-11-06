@@ -32,7 +32,7 @@ export function refreshAll() {
         ]);
         if (my !== gen) return;
         if (acc.status === 'fulfilled') { state.account = acc.value; onFresh('account'); emit('account', acc.value); }
-        if (ags.status === 'fulfilled') { state.agents = ags.value.items || []; state.agentsAt = Date.now(); emit('agents', state.agents); }
+        if (ags.status === 'fulfilled') { state.agents = ags.value.items || []; state.agentsAt = Date.now(); onFresh('agents'); emit('agents', state.agents); }
         if (pays.status === 'fulfilled') { state.payments = pays.value.items || []; emit('payments', state.payments); }
         const failed = [acc, ags, pays].find((r) => r.status === 'rejected');
         lastError = failed ? failed.reason : null;
@@ -81,23 +81,34 @@ export function stopPolling() {
 
 const SYNC_MS = 60_000;
 const SYNC_POLL_MS = 2_500;
-let expectation = null; // { wallet: "5" | null, account: "5" | null, until }
+let expectation = null; // { wallet: "5" | null, account: "5" | null, agents: snapshot | null, until }
 let syncTimer = null;
 
 export const isSyncing = () => !!expectation;
+/** True while the agent list is expected to change (limits, status). */
+export const agentsSyncing = () => !!(expectation && expectation.agents !== null);
 
 const num = (x) => Number(x) || 0;
 const same = (a, b) => Math.abs(num(a) - num(b)) < 1e-7;
 const fmt7 = (n) => String(Math.round(n * 1e7) / 1e7);
 const usdcEntry = (acc) => ((acc && acc.balances) || []).find((x) => /^usdc/i.test(x.asset || ''));
 
-/** A confirmed op moved USDC: { wallet: +/-n, account: +/-n } relative to what is shown now. */
-export function expectUsdc({ wallet = 0, account = 0 }) {
+const agentsSnap = () => JSON.stringify((state.agents || []).map((a) => [a.id, a.status, a.valid_until, a.limit, a.rule_id]));
+
+/**
+ * A confirmed tx changed on-chain state the UI shows, which Stellar RPC may
+ * not return yet. { wallet: +/-n, account: +/-n } moves the USDC shown now;
+ * { agents: true } marks the agent list (limits spent, status, a new rule) as
+ * stale until a fresh read differs from it. Calls merge into one sync.
+ */
+export function expectUsdc({ wallet = 0, account = 0, agents = false }) {
   const curW = num(state.me && state.me.wallet && state.me.wallet.usdc);
   const curA = num(usdcEntry(state.account) && usdcEntry(state.account).amount);
+  const prev = expectation;
   expectation = {
-    wallet: wallet ? fmt7(Math.max(0, curW + wallet)) : null,
-    account: account ? fmt7(Math.max(0, curA + account)) : null,
+    wallet: wallet ? fmt7(Math.max(0, curW + wallet)) : prev ? prev.wallet : null,
+    account: account ? fmt7(Math.max(0, curA + account)) : prev ? prev.account : null,
+    agents: agents ? agentsSnap() : prev ? prev.agents : null,
     until: Date.now() + SYNC_MS,
   };
   patch();
@@ -114,7 +125,8 @@ function onFresh(kind) {
   if (!e) return;
   if (kind === 'me' && e.wallet !== null && state.me && state.me.wallet && same(state.me.wallet.usdc, e.wallet)) e.wallet = null;
   if (kind === 'account' && e.account !== null && same((usdcEntry(state.account) || {}).amount, e.account)) e.account = null;
-  if ((e.wallet === null && e.account === null) || Date.now() > e.until) { endSync(); return; }
+  if (kind === 'agents' && e.agents !== null && agentsSnap() !== e.agents) e.agents = null;
+  if ((e.wallet === null && e.account === null && e.agents === null) || Date.now() > e.until) { endSync(); return; }
   patch();
 }
 

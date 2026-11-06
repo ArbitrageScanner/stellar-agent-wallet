@@ -5,7 +5,7 @@
 import { api, chatStream, describeError } from './api.js';
 import { state, on, accountUrl, agentById, ledgerSeconds } from './state.js';
 import { renderMarkdown } from './markdown.js';
-import { refreshAll } from './data.js';
+import { refreshAll, expectUsdc, isSyncing, agentsSyncing } from './data.js';
 import { statusBadge, limitGauge, payItem, addrLine, segBar } from './widgets.js';
 import { h, icon, ICONS, short, fmtAmount, fmtApprox, fmtPeriod, plural, store, extLink, parseMaybeJSON, copyBtn, waitLine, SLOW_RPC } from './util.js';
 
@@ -55,6 +55,8 @@ export function initChat() {
   renderChips();
   on('config', () => { renderChips(); updateLLMNotice(); });
   on('agents', () => { if (document.body.dataset.view === 'chat') syncAgents(); });
+  on('sync', () => { if (document.body.dataset.view === 'chat') renderPanel(); });
+  on('me', () => renderQuota());
   on('account', () => { if (document.body.dataset.view === 'chat') renderPanel(); });
 }
 
@@ -63,6 +65,9 @@ export function initChat() {
 /** Called when the chat view is shown (optionally for a given agent). */
 export function showChat(wantAgent = null) {
   if (!modelsLoaded) { modelsLoaded = true; loadModels(); }
+  const maxChars = state.config && state.config.limits && state.config.limits.chat_max_chars;
+  if (maxChars > 0) input.maxLength = maxChars;
+  renderQuota();
   if (wantAgent) state.chatAgent = wantAgent;
   syncAgents();
   if (!busy) input.focus({ preventScroll: true });
@@ -134,7 +139,8 @@ function renderPanel() {
   if (!a) { panel.replaceChildren(); panelKey = ''; return; }
   const acc = state.account;
   const bal = ((acc && acc.balances) || []).find((x) => /^usdc/i.test(x.asset || ''));
-  const key = JSON.stringify([a, bal, panelPayments, acc && acc.address]);
+  const syncing = isSyncing();
+  const key = JSON.stringify([a, bal, panelPayments, acc && acc.address, syncing, agentsSyncing()]);
   if (key === panelKey) return;
   panelKey = key;
   const pays = panelPayments;
@@ -144,6 +150,8 @@ function renderPanel() {
         h('div', { class: 'w-title' }, h('span', { 'data-testid': 'panel-agent-name' }, a.name), statusBadge(a.status)),
         h('div', { class: 'muted small' }, `Rule ${a.rule_id ?? '?'}, key `, h('code', { title: a.public_key }, short(a.public_key, 5, 5)))),
       limitGauge(a.limit, { at: state.agentsAt }),
+      syncing ? h('div', { class: 'sync-note', 'data-testid': 'panel-syncing', role: 'status' }, h('span', { class: 'spinner' }),
+        'Confirmed on-chain. Updating from Stellar RPC: the numbers here can lag a few seconds.') : null,
       h('div', { class: 'panel-acc' },
         h('span', { class: 'w-label' }, 'Agent wallet balance'),
         h('div', { class: 'w-balance' },
@@ -337,12 +345,20 @@ export async function send(text) {
           break;
         case 'text_delta': turn.text(data.text || ''); break;
         case 'tool_call': turn.toolCall(data); break;
-        case 'tool_result': turn.toolResult(data); break;
+        case 'tool_result':
+          turn.toolResult(data);
+          if (data && data.ok && data.name === 'pay' && data.result && Number(data.result.amount) > 0 && !data.result.duplicate) {
+            expectUsdc({ account: -Number(data.result.amount), agents: true });
+          }
+          break;
         case 'tx': turn.tx(data); afterTx(); break;
         case 'approval_required': turn.approval(data); break;
         case 'approval_resolved': turn.approvalResolved(data); break;
         case 'error': gotError = true; turn.fatal(data.message || 'Error', () => retry()); break;
-        case 'done': gotDone = true; break;
+        case 'done':
+          gotDone = true;
+          if (data && data.usage && state.me) { state.me.chat = data.usage; renderQuota(); }
+          break;
         default: break;
       }
       scrollDown();
@@ -356,6 +372,9 @@ export async function send(text) {
       turn.fatal('Conversation not found on the server. Start a new one.', () => retry());
     } else if (err && err.status === 401) {
       turn.fatal('Your session has ended. Sign in again.', null);
+    } else if (err && err.code === 'daily_limit_reached') {
+      if (state.me && state.me.chat) { state.me.chat.used = state.me.chat.limit; renderQuota(); }
+      turn.fatal(err.message, null);
     } else turn.fatal(err && err.message ? err.message : String(err), () => retry());
   } finally {
     turn.finish();
@@ -368,6 +387,21 @@ export async function send(text) {
 }
 
 function retry() { if (!busy && lastUserText) send(lastUserText); }
+
+/** "N of 50 messages left today" under the composer. */
+function renderQuota() {
+  const el = document.getElementById('chat-quota');
+  const q = state.me && state.me.chat;
+  if (!el) return;
+  if (!q || !(q.limit > 0)) { el.hidden = true; return; }
+  const left = Math.max(0, q.limit - (q.used || 0));
+  const reset = q.resets_at ? new Date(q.resets_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '';
+  el.hidden = false;
+  el.classList.toggle('is-out', left === 0);
+  el.textContent = left === 0
+    ? `Daily chat limit reached (${q.limit} messages). It resets at ${reset}. Agents can still pay over MCP.`
+    : `${left} of ${q.limit} ${plural(q.limit, 'message')} left today`;
+}
 
 function userBubble(text) {
   return h('div', { class: 'msg msg-user' }, h('div', { class: 'bubble' }, text));

@@ -2,7 +2,7 @@
 // fundingPanel() is also used by the dashboard's "Add funds" modal.
 
 import { api, describeError } from './api.js';
-import { state, on, accountUrl } from './state.js';
+import { state, on, emit, accountUrl } from './state.js';
 import { refreshAll, expectUsdc, isSyncing } from './data.js';
 import { runOp, txLink } from './ops.js';
 import { h, icon, ICONS, fmtAmount, normAmount, extLink, waitLine } from './util.js';
@@ -82,7 +82,8 @@ async function getTestXlm() {
   xlmError = null;
   renderOnboarding();
   try {
-    await api.friendbot();
+    const r = await api.friendbot();
+    if (r && r.wallet && r.wallet.funded && state.me) { state.me.wallet = r.wallet; emit('me', state.me); }
     await refreshAll();
   } catch (e) {
     xlmError = e;
