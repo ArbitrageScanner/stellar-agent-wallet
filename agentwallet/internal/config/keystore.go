@@ -3,9 +3,12 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/stellar/go-stellar-sdk/keypair"
@@ -76,12 +79,21 @@ func NewKeystore(n int, friendbot string, logf func(string, ...any)) (*Keystore,
 
 func fund(friendbot, address string) error {
 	c := &http.Client{Timeout: 60 * time.Second}
-	resp, err := c.Get(friendbot + "?addr=" + address)
+	resp, err := c.Get(friendbot + "?addr=" + url.QueryEscape(address))
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
+		// friendbot answers errors as problem+json; surface its detail
+		var p struct {
+			Title  string `json:"title"`
+			Detail string `json:"detail"`
+		}
+		_ = json.NewDecoder(io.LimitReader(resp.Body, 64<<10)).Decode(&p)
+		if msg := strings.TrimSpace(p.Detail + " " + p.Title); msg != "" {
+			return fmt.Errorf("HTTP %d: %s", resp.StatusCode, msg)
+		}
 		return fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
 	return nil

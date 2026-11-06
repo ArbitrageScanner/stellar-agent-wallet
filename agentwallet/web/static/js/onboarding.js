@@ -12,6 +12,8 @@ let list;
 let deploying = false;
 let deployResult = null;
 let deployError = null;
+let fundingXlm = false;   // friendbot request in flight (it takes 10-20 s)
+let xlmError = null;
 let goDashboard = () => {};
 
 export function initOnboarding({ onDone }) {
@@ -67,6 +69,22 @@ function deployStep(me, deployed) {
     me.account ? h('div', { class: 'muted small addr-preview' }, 'Your account address will be ', h('code', { title: me.account }, me.account)) : null,
     btn,
     deployError ? h('div', { class: 'res res-bad', role: 'alert', 'data-testid': 'deploy-error' }, icon(ICONS.alert), h('span', {}, describeError(deployError))) : null);
+}
+
+async function getTestXlm() {
+  if (fundingXlm) return;
+  fundingXlm = true;
+  xlmError = null;
+  renderOnboarding();
+  try {
+    await api.friendbot();
+    await refreshAll();
+  } catch (e) {
+    xlmError = e;
+  } finally {
+    fundingXlm = false;
+    renderOnboarding();
+  }
 }
 
 async function deploy() {
@@ -163,10 +181,15 @@ export function fundingPanel({ inModal = false } = {}) {
           h('button', { class: 'linkish', type: 'button', onClick: () => goDashboard() }, 'open the dashboard'),
           ' and add your first agent with a daily limit.')) : null,
       noXlm ? h('div', { class: 'notice notice-warn', 'data-testid': 'friendbot-notice' },
-        h('strong', {}, 'Your wallet has no XLM yet.'), ' Buying test USDC costs a little XLM. Fund your wallet with friendbot, then refresh. ',
+        h('strong', {}, 'Your wallet has no XLM yet.'), ' Buying test USDC costs a little XLM. Get free test XLM from friendbot. ',
         h('span', { class: 'row-inline' },
-          extLink(friendbot(me.address || ''), 'Open friendbot', 'tx-link'),
-          h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onClick: () => refreshAll() }, icon(ICONS.retry), 'Refresh'))) : null,
+          h('button', { class: 'btn btn-primary btn-sm', type: 'button', 'data-testid': 'get-test-xlm', disabled: fundingXlm, onClick: getTestXlm },
+            fundingXlm ? [h('span', { class: 'spinner' }), ' Asking friendbot…'] : [icon(ICONS.plus), ' Get test XLM']),
+          h('button', { class: 'btn btn-ghost btn-sm', type: 'button', disabled: fundingXlm, onClick: () => refreshAll() }, icon(ICONS.retry), 'Refresh')),
+        fundingXlm ? h('div', { class: 'muted small', role: 'status', 'data-testid': 'friendbot-progress' },
+          'Friendbot usually answers in 10 to 20 seconds; your balance updates by itself.') : null,
+        xlmError ? h('div', { class: 'res res-bad', role: 'alert', 'data-testid': 'friendbot-error' }, icon(ICONS.alert),
+          h('span', {}, describeError(xlmError), ' You can also ', extLink(friendbot(me.address || ''), 'open friendbot', 'tx-link'), ' in a new tab and refresh.')) : null) : null,
       h('div', { class: 'fund-action' },
         h('div', {},
           h('b', {}, '1. Get test USDC'),

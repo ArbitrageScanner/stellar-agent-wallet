@@ -48,6 +48,7 @@ Ops expire after about 10 minutes, and only the user who prepared an op can subm
 | `POST /api/auth/login` `{op_id, signed_xdr? , signature?}` | Verifies the SEP-10 challenge and sets the `aw_session` cookie. Returns `{address}`. |
 | `POST /api/auth/logout` | Clears the session. |
 | `GET /api/me` 🔒 | `{address, account, account_deployed, wallet: {xlm, usdc, usdc_trustline}, account_url}` |
+| `POST /api/me/friendbot` 🔒 | Testnet only: funds the signed-in user's G account with test XLM through friendbot, which takes 10–20 s. Returns `{ok, wallet}` with the new balances. Limited to 3 calls per user and 10 per IP per hour (429 `rate_limited`). A friendbot failure returns 502 `friendbot_error`. |
 
 ## Config
 

@@ -18,6 +18,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/stellar/go-stellar-sdk/network"
+
 	"github.com/ArbitrageScanner/stellar-agent-wallet/agentwallet/internal/agent"
 	"github.com/ArbitrageScanner/stellar-agent-wallet/agentwallet/internal/config"
 	"github.com/ArbitrageScanner/stellar-agent-wallet/agentwallet/internal/db"
@@ -82,6 +84,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/auth/logout", s.handleLogout)
 	mux.HandleFunc("POST /api/dev/fund", s.handleDevFund)
 	mux.Handle("GET /api/me", auth(s.handleMe))
+	mux.Handle("POST /api/me/friendbot", auth(s.handleFriendbot))
 
 	mux.Handle("POST /api/account", auth(s.handleDeploy))
 	mux.Handle("GET /api/account", auth(s.handleAccount))
@@ -320,6 +323,31 @@ func (s *Server) handleConfig(w http.ResponseWriter, _ *http.Request) {
 		"approval_threshold": c.ApprovalThreshold, "dev_wallet": c.DevWallet, "demo_payee": c.DemoPayee,
 		"period_ledgers": c.PeriodLedgers, "ledger_seconds": wallet.LedgerSeconds, "home_domain": c.HomeDomain,
 	})
+}
+
+// handleFriendbot funds the signed-in user's own G account with test XLM
+// (testnet only). The UI calls it instead of opening friendbot in a new tab:
+// friendbot takes 10-20 s and answers with raw JSON.
+func (s *Server) handleFriendbot(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.Wallet.Passphrase != network.TestNetworkPassphrase {
+		writeErr(w, http.StatusNotFound, "not_found", "friendbot is available on testnet only")
+		return
+	}
+	owner := user(r)
+	if !s.limiter.allow("friendbot:"+owner, 3, time.Hour) || !s.limiter.allow("friendbot-ip:"+clientIP(r), 10, time.Hour) {
+		writeErr(w, http.StatusTooManyRequests, "rate_limited", "friendbot was already used several times this hour; try again later")
+		return
+	}
+	if err := config.Fund(s.cfg.Friendbot, owner); err != nil {
+		writeErr(w, http.StatusBadGateway, "friendbot_error", "friendbot could not fund your wallet: "+err.Error())
+		return
+	}
+	bal, err := s.base.GBalances(r.Context(), owner)
+	if err != nil {
+		writeJSON(w, 200, map[string]any{"ok": true, "wallet": nil})
+		return
+	}
+	writeJSON(w, 200, map[string]any{"ok": true, "wallet": bal})
 }
 
 func (s *Server) handleDevFund(w http.ResponseWriter, r *http.Request) {

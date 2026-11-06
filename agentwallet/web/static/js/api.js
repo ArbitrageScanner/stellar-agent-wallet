@@ -79,6 +79,7 @@ export const api = {
   // 🔒
   me: () => get('api/me'),
   createAccount: () => post('api/account', {}),
+  friendbot: () => post('api/me/friendbot', {}),
   account: () => get('api/account'),
   testUsdc: (amount) => post('api/account/test-usdc/prepare', { amount }),
   fund: (amount) => post('api/account/fund/prepare', { amount }),

@@ -639,15 +639,18 @@ try {
     assert(typeof tx.messageId === 'number', 'messageId');
   });
 
-  await step('Freighter: unfunded wallet -> friendbot notice; rejecting a signature is handled; retry succeeds', async () => {
+  await step('Freighter: unfunded wallet -> "Get test XLM" via friendbot in place; rejecting a signature is handled; retry succeeds', async () => {
     await fpage.locator('[data-testid=create-account]').click();
     await fpage.locator('[data-testid=step-1][data-state=done]').waitFor({ timeout: T });
     await fpage.locator('[data-testid=friendbot-notice]').waitFor({ timeout: T });
-    assert(await fpage.locator('[data-testid=friendbot-notice] a[href^="https://friendbot.stellar.org/?addr=G"]').count() === 1, 'friendbot link');
     assert(await fpage.locator('[data-testid=get-test-usdc]').isDisabled(), 'test USDC disabled without XLM');
-    await fetch(`${base}/api/dev/fund`, { method: 'POST', headers: { 'content-type': 'application/json', 'X-Agentwallet': '1' }, body: JSON.stringify({ address: FREIGHTER_ADDR }) });
-    await fpage.locator('[data-testid=friendbot-notice] button', { hasText: 'Refresh' }).click();
+    const pages = fpage.context().pages().length;
+    await fpage.locator('[data-testid=get-test-xlm]').click();
+    await fpage.locator('[data-testid=friendbot-progress]').waitFor({ timeout: T });
+    assert(await fpage.locator('[data-testid=get-test-xlm]').isDisabled(), 'button disabled while friendbot runs');
     await fpage.locator('[data-testid=friendbot-notice]').waitFor({ state: 'detached', timeout: T });
+    eq(fpage.context().pages().length, pages, 'no new tab opened');
+    eq(await fpage.locator('[data-testid=wallet-xlm]').textContent(), '10,000', 'XLM shown after friendbot');
     await fpage.evaluate(() => { window.__fk.reject = true; });
     await fpage.locator('[data-testid=get-test-usdc]').click();
     await fpage.locator('#modal [data-testid=op][data-state=rejected]').waitFor({ timeout: T });

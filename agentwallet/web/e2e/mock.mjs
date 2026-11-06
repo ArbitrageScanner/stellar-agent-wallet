@@ -673,6 +673,12 @@ async function route(req, res, url) {
 
   if (p === '/api/me' && m === 'GET') return json(res, 200, meJSON(u));
 
+  if (p === '/api/me/friendbot' && m === 'POST') {
+    await sleep(1200); // the real friendbot takes 10-20 s
+    u.wallet.xlm = Math.max(u.wallet.xlm, 10000);
+    return json(res, 200, { ok: true, wallet: meJSON(u).wallet });
+  }
+
   if (p === '/api/account' && m === 'POST') {
     if (u.deployed) return json(res, 200, { account: u.account, tx: null });
     await sleep(900);
