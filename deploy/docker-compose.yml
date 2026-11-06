@@ -37,7 +37,7 @@ services:
       APPROVAL_THRESHOLD: ${APPROVAL_THRESHOLD:-2}
       RELAYERS: ${RELAYERS:-3}
       RPC_URL: ${RPC_URL:-https://soroban-testnet.stellar.org}
-      DEV_WALLET: "false"
+      DEV_WALLET: "true"                     # testnet demo: in-browser test keys + friendbot funding
     volumes:
       - ./data:/data
       - ./deployment.json:/config/deployment.json:ro
