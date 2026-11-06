@@ -8,7 +8,7 @@ import { runOp } from './ops.js';
 import { openModal, closeModal, promptAmount } from './modal.js';
 import { fundingPanel } from './onboarding.js';
 import { statusBadge, limitGauge, payItem, apiKeyReveal, addrLine } from './widgets.js';
-import { h, icon, ICONS, short, fmtAmount, fmtRelTime, normAmount, copyBtn, plural, toast } from './util.js';
+import { h, icon, ICONS, short, fmtAmount, fmtRelTime, normAmount, copyBtn, plural, toast, waitLine, SLOW_RPC } from './util.js';
 import { isDev } from './signer.js';
 
 let openChat = () => {};
@@ -26,7 +26,7 @@ export function initDashboard({ onChat }) {
   });
   document.getElementById('payments-filter').addEventListener('change', (e) => {
     state.payFilter = e.target.value;
-    document.getElementById('payments-list').replaceChildren(h('div', { class: 'state-box state-loading' }, h('span', { class: 'spinner' }), 'Loading…'));
+    document.getElementById('payments-list').replaceChildren(h('div', { class: 'state-box' }, waitLine('Loading payments…', [[5_000, 'Checking recent payments against Stellar testnet RPC.']])));
     refreshPayments().catch((err) => renderPaymentsError(err));
   });
   on('account', () => renderAccount());
@@ -131,7 +131,7 @@ function renderAgents() {
   const agents = state.agents;
   document.getElementById('agents-count').textContent = agents && agents.length ? String(agents.length) : '';
   if (!agents) {
-    if (!list.firstChild) list.replaceChildren(h('div', { class: 'state-box state-loading' }, h('span', { class: 'spinner' }), 'Loading agents…'));
+    if (!list.firstChild) list.replaceChildren(h('div', { class: 'state-box' }, waitLine('Loading agents…', [[4_000, 'Reading your agents and their on-chain limits from Stellar testnet RPC.'], [15_000, SLOW_RPC]])));
     return;
   }
   const key = JSON.stringify([agents.map((a) => ({ ...a, limit: { ...a.limit, resets_in_seconds: null } })), [...openKeys]]);
@@ -343,7 +343,7 @@ function renderFilter() {
 function renderPayments() {
   const el = document.getElementById('payments-list');
   const items = state.payments;
-  if (!items) { el.replaceChildren(h('div', { class: 'state-box state-loading' }, h('span', { class: 'spinner' }), 'Loading…')); return; }
+  if (!items) { el.replaceChildren(h('div', { class: 'state-box' }, waitLine('Loading payments…', [[5_000, 'Checking recent payments against Stellar testnet RPC.']]))); return; }
   if (!items.length) {
     el.replaceChildren(h('div', { class: 'empty-mini', 'data-testid': 'no-payments' }, state.payFilter ? 'No payments by this agent yet.' : 'No payments yet. Chat with an agent or connect one over MCP.'));
     return;

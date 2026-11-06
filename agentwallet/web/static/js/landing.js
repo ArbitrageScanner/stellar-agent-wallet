@@ -4,9 +4,23 @@ import { state } from './state.js';
 import { describeError } from './api.js';
 import { loginWithFreighter, loginWithTestKey, FREIGHTER_URL } from './signer.js';
 import * as Dev from './devwallet.js';
-import { h, icon, ICONS, short, extLink } from './util.js';
+import { h, icon, ICONS, short, extLink, waitLine, SLOW_RPC } from './util.js';
 
 let statusEl, freighterBtn, testBtn, busy = false;
+
+// Extra lines for the sign-in steps that can take a while on testnet.
+const LOGIN_HINTS = {
+  'Funding the test key with friendbot…': [
+    [3_000, 'Friendbot creates and funds a fresh testnet account with 10,000 XLM. This usually takes 5 to 20 seconds.'],
+    [25_000, 'Friendbot is slow right now. Keep this tab open; sign-in continues on its own.'],
+  ],
+  'Signed in. Reading your wallet from Stellar testnet…': [
+    [3_000, 'Reading your wallet and smart account from the public testnet RPC. This can take up to 15 seconds.'],
+    [20_000, SLOW_RPC],
+  ],
+  'Approve the connection in Freighter…': [[6_000, 'Freighter opens a popup. If you do not see it, click the Freighter icon in the browser toolbar.']],
+  'Confirm the sign-in in Freighter…': [[6_000, 'Freighter opens a popup. If you do not see it, click the Freighter icon in the browser toolbar.']],
+};
 let signedIn = () => {};
 
 export function initLanding({ onSignedIn }) {
@@ -54,7 +68,7 @@ function setBusy(b) {
 async function run(kind) {
   if (busy) return;
   setBusy(true);
-  const progress = (text) => setStatus('progress', [h('span', { class: 'spinner' }), h('span', {}, text)]);
+  const progress = (text) => setStatus('progress', [waitLine(text, LOGIN_HINTS[text] || [[10_000, SLOW_RPC]])]);
   try {
     const session = kind === 'dev' ? await loginWithTestKey(progress) : await loginWithFreighter(progress);
     // Keep the loader up while the account loads: /api/me reads Stellar RPC and can take seconds.

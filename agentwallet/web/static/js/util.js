@@ -191,3 +191,23 @@ export function slug(name, fallback = 'agentwallet') {
   const s = String(name || '').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
   return s || fallback;
 }
+
+/** Explains a slow Stellar testnet RPC; shown when a wait drags on. */
+export const SLOW_RPC = 'The public Stellar testnet RPC is slow at times. Keep this tab open; it finishes on its own.';
+
+/**
+ * A loader: a spinner and a line of text, plus hints that appear only if the
+ * wait drags on. hints: [[afterMs, text], ...]; `since` lets a re-rendered
+ * loader keep its clock (pass the time the wait started).
+ */
+export function waitLine(text, hints = [], { since = Date.now(), testid = null } = {}) {
+  const hint = h('div', { class: 'wait-hint', 'aria-live': 'polite', hidden: true });
+  const el = h('div', { class: 'wait', 'data-testid': testid }, h('div', { class: 'wait-main' }, h('span', { class: 'spinner' }), h('span', {}, text)), hint);
+  for (const [after, msg] of hints) {
+    const show = () => { hint.textContent = msg; hint.hidden = false; };
+    const left = after - (Date.now() - since);
+    if (left <= 0) show();
+    else setTimeout(() => { if (el.isConnected || !el.parentNode) show(); }, left);
+  }
+  return el;
+}

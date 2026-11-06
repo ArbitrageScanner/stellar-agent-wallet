@@ -5,7 +5,7 @@ import { api, describeError } from './api.js';
 import { state, on, accountUrl } from './state.js';
 import { refreshAll, expectUsdc, isSyncing } from './data.js';
 import { runOp, txLink } from './ops.js';
-import { h, icon, ICONS, fmtAmount, normAmount, extLink } from './util.js';
+import { h, icon, ICONS, fmtAmount, normAmount, extLink, waitLine } from './util.js';
 import { addrLine } from './widgets.js';
 
 let list;
@@ -14,6 +14,7 @@ let deployResult = null;
 let deployError = null;
 let fundingXlm = false;   // friendbot request in flight (it takes 10-20 s)
 let xlmError = null;
+let deployStartedAt = 0;
 let goDashboard = () => {};
 
 export function initOnboarding({ onDone }) {
@@ -63,11 +64,15 @@ function deployStep(me, deployed) {
       deployResult && deployResult.tx && deployResult.tx.hash ? h('div', { class: 'small' }, 'Deployment ', txLink(deployResult.tx)) : null);
   }
   const btn = h('button', { class: 'btn btn-primary', type: 'button', 'data-testid': 'create-account', disabled: deploying, onClick: deploy },
-    deploying ? [h('span', { class: 'spinner' }), ' Deploying your smart account…'] : [icon(ICONS.wallet), ' Create my agent wallet']);
+    [icon(ICONS.wallet), deploying ? ' Deploying…' : ' Create my agent wallet']);
   return h('div', { class: 'stack' },
     h('p', {}, 'We deploy an OpenZeppelin smart account for you on Stellar testnet. Its address is derived from your wallet address, and its admin rule (rule 0) is your wallet. The relayer pays the fee, so there is nothing to sign.'),
     me.account ? h('div', { class: 'muted small addr-preview' }, 'Your account address will be ', h('code', { title: me.account }, me.account)) : null,
     btn,
+    deploying ? waitLine('Deploying your smart account on Stellar testnet…', [
+      [0, 'Deploying a contract takes a little while: usually 15 to 40 seconds. The relayer submits it and waits for the ledger to confirm.'],
+      [45_000, 'Taking longer than usual. The public testnet RPC is slow right now; keep this tab open, this step finishes on its own.'],
+    ], { since: deployStartedAt, testid: 'deploy-progress' }) : null,
     deployError ? h('div', { class: 'res res-bad', role: 'alert', 'data-testid': 'deploy-error' }, icon(ICONS.alert), h('span', {}, describeError(deployError))) : null);
 }
 
@@ -90,6 +95,7 @@ async function getTestXlm() {
 async function deploy() {
   if (deploying) return;
   deploying = true;
+  deployStartedAt = Date.now();
   deployError = null;
   state.onboarding = true; // stay here for the funding step after the deploy
   renderOnboarding();

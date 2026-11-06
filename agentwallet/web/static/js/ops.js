@@ -4,7 +4,7 @@
 import { api, describeError } from './api.js';
 import { openModal } from './modal.js';
 import { signOp, isDev, FREIGHTER_URL } from './signer.js';
-import { h, icon, ICONS, short, copyBtn, extLink, fmtAmount } from './util.js';
+import { h, icon, ICONS, short, copyBtn, extLink, fmtAmount, waitLine, SLOW_RPC } from './util.js';
 
 const STEPS = [
   { key: 'prepare', label: 'Prepare' },
@@ -76,7 +76,10 @@ class OpView {
     this.result.replaceChildren();
     this.setState('preparing');
     this.step(0, 'active');
-    this.setStatus(h('span', { class: 'spinner' }), ' Preparing…');
+    this.setStatus(waitLine('Preparing…', [
+      [3_000, 'The server builds the operation and simulates it against Stellar testnet RPC to get its exact footprint and fee.'],
+      [15_000, SLOW_RPC],
+    ]));
     this.buttons(this.closeBtn('Cancel'));
     let op;
     try {
@@ -125,7 +128,10 @@ class OpView {
   async submit(body) {
     this.setState('submitting');
     this.step(2, 'active');
-    this.setStatus(h('span', { class: 'spinner' }), ' Submitting to Stellar testnet…');
+    this.setStatus(waitLine('Submitting to Stellar testnet…', [
+      [3_000, 'Waiting for the transaction to land in a ledger. Testnet closes one every 5 seconds or so; with RPC confirmation this usually takes 5 to 15 seconds.'],
+      [25_000, 'Still waiting for Stellar to confirm. The public testnet RPC is slow right now; the result shows here as soon as it is confirmed.'],
+    ]));
     this.buttons();
     this.modal.setDismissible(false);
     let resp;

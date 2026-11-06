@@ -7,7 +7,7 @@ import { state, on, accountUrl, agentById, ledgerSeconds } from './state.js';
 import { renderMarkdown } from './markdown.js';
 import { refreshAll } from './data.js';
 import { statusBadge, limitGauge, payItem, addrLine, segBar } from './widgets.js';
-import { h, icon, ICONS, short, fmtAmount, fmtApprox, fmtPeriod, plural, store, extLink, parseMaybeJSON, copyBtn } from './util.js';
+import { h, icon, ICONS, short, fmtAmount, fmtApprox, fmtPeriod, plural, store, extLink, parseMaybeJSON, copyBtn, waitLine, SLOW_RPC } from './util.js';
 
 const K_MODEL = 'aw.model';
 const K_AGENT = 'aw.agent';
@@ -247,7 +247,8 @@ function renderSuggest(outcome = null) {
   const keys = NEXT[outcome] || NEXT_DEFAULT;
   const defs = chipDefs()
     .filter((c) => keys.includes(c.key) && c.text !== lastUserText && !(c.needsPayee && !c.payee))
-    .sort((a, b) => keys.indexOf(a.key) - keys.indexOf(b.key));
+    .sort((a, b) => keys.indexOf(a.key) - keys.indexOf(b.key))
+    .slice(0, 3);
   suggestEl.replaceChildren(h('span', { class: 'suggest-label' }, 'Try next'), ...defs.map(chipButton));
   suggestEl.hidden = !defs.length;
 }
@@ -375,7 +376,7 @@ function userBubble(text) {
 /* ---------- restore ---------- */
 
 async function restore(id, forAgent) {
-  const loading = h('div', { class: 'state-box state-loading' }, h('span', { class: 'spinner' }), 'Loading conversation…');
+  const loading = h('div', { class: 'state-box' }, waitLine('Loading conversation…', [[6_000, SLOW_RPC]]));
   emptyEl.hidden = true;
   log.append(loading);
   try {
@@ -452,6 +453,16 @@ class Turn {
     this.restored = restored;
     this.body = h('div', { class: 'turn-body' });
     this.typing = h('div', { class: 'typing', 'aria-label': 'Agent is thinking' }, h('span'), h('span'), h('span'));
+    if (!restored) {
+      // Explain long waits next to the typing dots, only while nothing else explains them.
+      const note = (text) => {
+        if (!this.typing.isConnected) return;
+        const n = this.typing.querySelector('.typing-note') || this.typing.appendChild(h('span', { class: 'typing-note' }));
+        n.textContent = text;
+      };
+      setTimeout(() => { if (!this.md && !this.cards.size) note('The model is thinking…'); }, 6_000);
+      setTimeout(() => note('Still working. Model replies and on-chain calls on Stellar testnet can take up to a minute.'), 25_000);
+    }
     this.el = h('div', { class: 'msg msg-assistant turn' },
       this.body);
     this.el.__turn = this;
@@ -647,10 +658,21 @@ class ToolCard {
         h('span', { class: 'tool-title', title: TOOL_LABEL[d.name] || d.name }, callTitle(d.name, this.args)),
         this.stateEl),
       this.summary, this.extra, this.jsons);
+    // A tool that runs for a while gets a line on what it is waiting for.
+    const onChain = d.name === 'pay';
+    setTimeout(() => {
+      if (this.done || this.el.dataset.status !== 'running') return;
+      this.summary.hidden = false;
+      this.summary.classList.add('tool-wait');
+      this.summary.textContent = onChain
+        ? 'Sending the payment on-chain: simulate, sign, submit, then wait for the ledger. Usually 5 to 15 seconds on testnet.'
+        : 'Reading from Stellar testnet RPC…';
+    }, onChain ? 3_000 : 5_000);
   }
 
   setResult(d) {
     this.done = true;
+    this.summary.classList.remove('tool-wait');
     if (d.name && !this.name) this.name = d.name;
     const ok = d.ok !== false && !d.error;
     this.el.dataset.status = ok ? 'ok' : 'error';
