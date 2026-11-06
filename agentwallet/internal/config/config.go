@@ -53,6 +53,24 @@ type App struct {
 	Friendbot         string
 	RelayersCount     int
 	TrustProxy        bool // take the client IP from X-Forwarded-For (only behind a reverse proxy)
+	Limits            Limits
+}
+
+// Limits are the abuse guards. 0 disables a limit.
+type Limits struct {
+	ChatMaxChars      int // characters per chat message
+	ChatHistory       int // messages of history sent to the model per turn
+	LLMMaxTokens      int // max_tokens per model reply
+	ChatDailyWallet   int // chat messages per wallet per UTC day
+	ChatDailyIP       int // chat messages per IP per UTC day
+	LLMDailyCalls     int // model calls per UTC day for the whole service
+	ChatConcurrent    int // chat answers streaming at once per wallet
+	PendingOps        int // unsigned ops per user
+	DeploysPerIPDay   int // account deploys per IP per UTC day
+	OwnerOpsPerHour   int // prepared owner/user ops per wallet per hour
+	AgentsPerUser     int
+	KeysPerAgent      int // active API keys per agent
+	MCPCallsPerMinute int // tool calls per agent per minute (MCP and chat)
 }
 
 func env(key, def string) string {
@@ -105,6 +123,21 @@ func Base() (*App, error) {
 		Friendbot:         env("FRIENDBOT_URL", "https://friendbot.stellar.org"),
 		RelayersCount:     atoi(env("RELAYERS", "3")),
 		TrustProxy:        env("TRUST_PROXY", "false") == "true",
+		Limits: Limits{
+			ChatMaxChars:      atoi(env("CHAT_MAX_CHARS", "4000")),
+			ChatHistory:       atoi(env("CHAT_HISTORY_MESSAGES", "30")),
+			LLMMaxTokens:      atoi(env("LLM_MAX_TOKENS", "1024")),
+			ChatDailyWallet:   atoi(env("CHAT_DAILY_PER_WALLET", "50")),
+			ChatDailyIP:       atoi(env("CHAT_DAILY_PER_IP", "150")),
+			LLMDailyCalls:     atoi(env("LLM_DAILY_CALLS", "5000")),
+			ChatConcurrent:    atoi(env("CHAT_CONCURRENT_PER_WALLET", "3")),
+			PendingOps:        atoi(env("PENDING_OPS_PER_USER", "20")),
+			DeploysPerIPDay:   atoi(env("DEPLOYS_PER_IP_DAY", "10")),
+			OwnerOpsPerHour:   atoi(env("OWNER_OPS_PER_HOUR", "30")),
+			AgentsPerUser:     atoi(env("AGENTS_PER_USER", "10")),
+			KeysPerAgent:      atoi(env("KEYS_PER_AGENT", "5")),
+			MCPCallsPerMinute: atoi(env("MCP_CALLS_PER_MINUTE", "120")),
+		},
 	}
 	h, err := hex.DecodeString(env("ACCOUNT_WASM_HASH", accountWasmHash))
 	if err != nil || len(h) != 32 {

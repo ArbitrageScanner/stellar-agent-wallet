@@ -55,18 +55,31 @@ type Server struct {
 
 	limiter *limiter
 	mcp     *mcpSessions
+
+	chatMu     sync.Mutex
+	chatActive map[string]int // streaming chat answers per wallet
 }
 
 func New(cfg *config.App, base *wallet.Wallet, store *db.DB) *Server {
-	return &Server{
+	s := &Server{
 		cfg: cfg, base: base, db: store,
-		agent:   &agent.Agent{BaseURL: cfg.LLMURL, APIKey: cfg.LLMKey, MaxSteps: 8, Referer: cfg.PublicURL},
+		agent:   &agent.Agent{BaseURL: cfg.LLMURL, APIKey: cfg.LLMKey, MaxSteps: 8, MaxTokens: cfg.Limits.LLMMaxTokens, Referer: cfg.PublicURL},
 		ops:     map[string]*op{},
 		convs:   map[string]*conversation{},
 		agents:  map[string]*agentHandle{},
 		limiter: newLimiter(),
 		mcp:     newMCPSessions(),
+
+		chatActive: map[string]int{},
 	}
+	// service-wide daily budget of model calls (each chat turn can take several)
+	s.agent.BeforeCall = func(context.Context) error {
+		if _, ok, err := s.db.Use("llm:calls", cfg.Limits.LLMDailyCalls); err == nil && !ok {
+			return errors.New("the chat is paused until midnight UTC: the service reached its daily model budget. Agents can still pay over MCP")
+		}
+		return nil
+	}
+	return s
 }
 
 type userKey struct{}
@@ -88,16 +101,16 @@ func (s *Server) Handler() http.Handler {
 
 	mux.Handle("POST /api/account", auth(s.handleDeploy))
 	mux.Handle("GET /api/account", auth(s.handleAccount))
-	mux.Handle("POST /api/account/test-usdc/prepare", auth(s.handlePrepareTestUSDC))
-	mux.Handle("POST /api/account/fund/prepare", auth(s.handlePrepareFund))
-	mux.Handle("POST /api/account/withdraw/prepare", auth(s.handlePrepareWithdraw))
+	mux.Handle("POST /api/account/test-usdc/prepare", auth(s.opLimited(s.handlePrepareTestUSDC)))
+	mux.Handle("POST /api/account/fund/prepare", auth(s.opLimited(s.handlePrepareFund)))
+	mux.Handle("POST /api/account/withdraw/prepare", auth(s.opLimited(s.handlePrepareWithdraw)))
 	mux.Handle("POST /api/ops/{id}/submit", auth(s.handleSubmitOp))
 
 	mux.Handle("GET /api/agents", auth(s.handleAgents))
-	mux.Handle("POST /api/agents/prepare", auth(s.handlePrepareAgent))
-	mux.Handle("POST /api/agents/{id}/limit/prepare", auth(s.handlePrepareLimit))
-	mux.Handle("POST /api/agents/{id}/revoke/prepare", auth(s.handlePrepareRevoke))
-	mux.Handle("POST /api/agents/{id}/restore/prepare", auth(s.handlePrepareRestore))
+	mux.Handle("POST /api/agents/prepare", auth(s.opLimited(s.handlePrepareAgent)))
+	mux.Handle("POST /api/agents/{id}/limit/prepare", auth(s.opLimited(s.handlePrepareLimit)))
+	mux.Handle("POST /api/agents/{id}/revoke/prepare", auth(s.opLimited(s.handlePrepareRevoke)))
+	mux.Handle("POST /api/agents/{id}/restore/prepare", auth(s.opLimited(s.handlePrepareRestore)))
 	mux.Handle("POST /api/agents/{id}/keys", auth(s.handleCreateKey))
 	mux.Handle("DELETE /api/agents/{id}/keys/{prefix}", auth(s.handleRevokeKey))
 
@@ -165,6 +178,7 @@ func (s *Server) gc(ctx context.Context) {
 			}
 			s.convMu.Unlock()
 			s.db.PruneSessions()
+			s.db.PruneUsage()
 		}
 	}
 }
@@ -285,6 +299,21 @@ func writeErr(w http.ResponseWriter, status int, code, msg string) {
 	writeJSON(w, status, map[string]any{"error": map[string]string{"code": code, "message": msg}})
 }
 
+// nextUTCDay is when daily quotas reset.
+func nextUTCDay() string {
+	n := time.Now().UTC()
+	return time.Date(n.Year(), n.Month(), n.Day()+1, 0, 0, 0, 0, time.UTC).Format(time.RFC3339)
+}
+
+// writeLimit answers 429 for an exhausted quota or rate limit.
+func writeLimit(w http.ResponseWriter, code, msg string, limit int, extra map[string]any) {
+	d := map[string]any{"limit": limit}
+	for k, v := range extra {
+		d[k] = v
+	}
+	writeJSON(w, http.StatusTooManyRequests, map[string]any{"error": map[string]any{"code": code, "message": msg, "details": d}})
+}
+
 func writeWalletErr(w http.ResponseWriter, e *wallet.Error) {
 	status := http.StatusBadGateway
 	switch e.Code {
@@ -322,6 +351,7 @@ func (s *Server) handleConfig(w http.ResponseWriter, _ *http.Request) {
 		"usdc_contract": c.Wallet.USDC, "default_model": c.DefaultModel, "llm_configured": c.LLMKey != "",
 		"approval_threshold": c.ApprovalThreshold, "dev_wallet": c.DevWallet, "demo_payee": c.DemoPayee,
 		"period_ledgers": c.PeriodLedgers, "ledger_seconds": wallet.LedgerSeconds, "home_domain": c.HomeDomain,
+		"limits": map[string]any{"chat_max_chars": c.Limits.ChatMaxChars, "chat_daily": c.Limits.ChatDailyWallet},
 	})
 }
 

@@ -49,8 +49,13 @@ type Agent struct {
 	BaseURL  string // https://openrouter.ai/api/v1
 	APIKey   string
 	MaxSteps int
-	HTTP     *http.Client
-	Referer  string
+	// MaxTokens caps each model reply (0: provider default).
+	MaxTokens int
+	// BeforeCall runs before every model call; an error stops the turn
+	// (used for the service-wide daily model budget).
+	BeforeCall func(ctx context.Context) error
+	HTTP       *http.Client
+	Referer    string
 }
 
 func toolSpecs(runner Runner) []map[string]any {
@@ -76,6 +81,11 @@ func (a *Agent) Run(ctx context.Context, runner Runner, model string, history []
 	var added []Message
 	msgs := append([]Message(nil), history...)
 	for step := 0; step < steps; step++ {
+		if a.BeforeCall != nil {
+			if err := a.BeforeCall(ctx); err != nil {
+				return added, err
+			}
+		}
 		msg, err := a.complete(ctx, runner, model, msgs, emit)
 		if err != nil {
 			return added, err
@@ -134,32 +144,36 @@ func orEmpty(s string) string {
 
 // complete streams one chat completion and assembles the assistant message.
 func (a *Agent) complete(ctx context.Context, runner Runner, model string, msgs []Message, emit Emit) (Message, error) {
-	body, _ := json.Marshal(map[string]any{
+	req := map[string]any{
 		"model": model, "messages": msgs, "tools": toolSpecs(runner), "tool_choice": "auto",
 		"stream": true, "temperature": 0.2,
-	})
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(a.BaseURL, "/")+"/chat/completions", bytes.NewReader(body))
+	}
+	if a.MaxTokens > 0 {
+		req["max_tokens"] = a.MaxTokens
+	}
+	body, _ := json.Marshal(req)
+	hreq, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(a.BaseURL, "/")+"/chat/completions", bytes.NewReader(body))
 	if err != nil {
 		return Message{}, err
 	}
-	req.Header.Set("Authorization", "Bearer "+a.APIKey)
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Title", "agentwallet demo")
+	hreq.Header.Set("Authorization", "Bearer "+a.APIKey)
+	hreq.Header.Set("Content-Type", "application/json")
+	hreq.Header.Set("X-Title", "agentwallet demo")
 	if a.Referer != "" {
-		req.Header.Set("HTTP-Referer", a.Referer)
+		hreq.Header.Set("HTTP-Referer", a.Referer)
 	}
 	hc := a.HTTP
 	if hc == nil {
 		hc = &http.Client{Timeout: 180 * time.Second}
 	}
-	resp, err := hc.Do(req)
+	resp, err := hc.Do(hreq)
 	if err != nil {
-		return Message{}, fmt.Errorf("openrouter: %w", err)
+		return Message{}, fmt.Errorf("model API: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		b, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		return Message{}, fmt.Errorf("openrouter: HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(b)))
+		return Message{}, fmt.Errorf("model API: HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(b)))
 	}
 
 	var text strings.Builder
@@ -195,7 +209,7 @@ func (a *Agent) complete(ctx context.Context, runner Runner, model string, msgs 
 			continue
 		}
 		if chunk.Error != nil {
-			return Message{}, fmt.Errorf("openrouter: %s", chunk.Error.Message)
+			return Message{}, fmt.Errorf("model API: %s", chunk.Error.Message)
 		}
 		for _, ch := range chunk.Choices {
 			if ch.Delta.Content != "" {
@@ -217,7 +231,7 @@ func (a *Agent) complete(ctx context.Context, runner Runner, model string, msgs 
 		}
 	}
 	if err := sc.Err(); err != nil {
-		return Message{}, fmt.Errorf("openrouter stream: %w", err)
+		return Message{}, fmt.Errorf("model API stream: %w", err)
 	}
 
 	msg := Message{Role: "assistant"}

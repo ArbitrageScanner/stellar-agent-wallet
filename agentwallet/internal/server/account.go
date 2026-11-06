@@ -113,6 +113,14 @@ func (s *Server) handleDeploy(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 200, map[string]any{"account": s.accountOf(owner), "tx": nil})
 		return
 	}
+	// the relayer pays for every deploy and wallets are free to create, so
+	// deploys are also capped per IP and day
+	if max := s.cfg.Limits.DeploysPerIPDay; max > 0 {
+		if _, ok, err := s.db.Use("deploy:ip:"+clientIP(r), max); err == nil && !ok {
+			writeLimit(w, "daily_limit_reached", fmt.Sprintf("at most %d new agent wallets per day from one network; try again tomorrow", max), max, map[string]any{"resets_at": nextUTCDay()})
+			return
+		}
+	}
 	addr, tx, e := s.base.DeployAccount(r.Context(), owner, s.cfg.AccountWasm)
 	if e != nil {
 		writeWalletErr(w, e)
@@ -189,7 +197,7 @@ func (s *Server) handlePrepareTestUSDC(w http.ResponseWriter, r *http.Request) {
 	if !bal.USDCTrustline {
 		summary = "Add a USDC trustline and buy " + sv.FormatAmount(n) + " test USDC for XLM on the testnet DEX"
 	}
-	writeJSON(w, 200, s.txOp(owner, summary, ut, nil))
+	s.txOp(w, owner, summary, ut, nil)
 }
 
 func (s *Server) handlePrepareFund(w http.ResponseWriter, r *http.Request) {
@@ -212,7 +220,7 @@ func (s *Server) handlePrepareFund(w http.ResponseWriter, r *http.Request) {
 		writeWalletErr(w, e)
 		return
 	}
-	writeJSON(w, 200, s.txOp(user(r), fmt.Sprintf("Send %s USDC from your wallet to your agent wallet", sv.FormatAmount(n)), ut, nil))
+	s.txOp(w, user(r), fmt.Sprintf("Send %s USDC from your wallet to your agent wallet", sv.FormatAmount(n)), ut, nil)
 }
 
 func (s *Server) handlePrepareWithdraw(w http.ResponseWriter, r *http.Request) {
@@ -235,7 +243,7 @@ func (s *Server) handlePrepareWithdraw(w http.ResponseWriter, r *http.Request) {
 		writeWalletErr(w, e)
 		return
 	}
-	writeJSON(w, 200, s.authOp(user(r), fmt.Sprintf("Withdraw %s USDC from your agent wallet to your wallet", sv.FormatAmount(n)), oc, nil, nil))
+	s.authOp(w, user(r), fmt.Sprintf("Withdraw %s USDC from your agent wallet to your wallet", sv.FormatAmount(n)), oc, nil, nil)
 }
 
 // ---------------------------------------------------------------- agents
@@ -335,6 +343,10 @@ func (s *Server) handlePrepareAgent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	owner := user(r)
+	if max := s.cfg.Limits.AgentsPerUser; max > 0 && s.db.CountAgents(owner) >= max {
+		writeErr(w, http.StatusConflict, "limit_reached", fmt.Sprintf("at most %d agents per wallet; revoke one you no longer need", max))
+		return
+	}
 	var validUntil *uint32
 	if req.ValidDays != nil {
 		if *req.ValidDays < 1 || *req.ValidDays > 365 {
@@ -387,7 +399,7 @@ func (s *Server) handlePrepareAgent(w http.ResponseWriter, r *http.Request) {
 		}
 		return map[string]any{"agent": s.agentJSON(ctx, owner, id), "api_key": key}, nil
 	}
-	writeJSON(w, 200, s.authOp(owner, summary, oc, onSuccess, func() { _ = s.db.DeleteAgent(id) }))
+	s.authOp(w, owner, summary, oc, onSuccess, func() { _ = s.db.DeleteAgent(id) })
 }
 
 func (s *Server) handlePrepareLimit(w http.ResponseWriter, r *http.Request) {
@@ -415,7 +427,7 @@ func (s *Server) handlePrepareLimit(w http.ResponseWriter, r *http.Request) {
 		s.dropHandle(a.ID)
 		return map[string]any{"agent": s.agentJSON(ctx, a.Owner, a.ID)}, nil
 	}
-	writeJSON(w, 200, s.authOp(a.Owner, fmt.Sprintf("Set %q limit to %s USDC/day", a.Name, sv.FormatAmount(limit)), oc, onSuccess, nil))
+	s.authOp(w, a.Owner, fmt.Sprintf("Set %q limit to %s USDC/day", a.Name, sv.FormatAmount(limit)), oc, onSuccess, nil)
 }
 
 func (s *Server) prepareValidity(w http.ResponseWriter, r *http.Request, revoke bool) {
@@ -453,7 +465,7 @@ func (s *Server) prepareValidity(w http.ResponseWriter, r *http.Request, revoke 
 		s.mcp.dropAgent(a.ID)
 		return map[string]any{"agent": s.agentJSON(ctx, a.Owner, a.ID)}, nil
 	}
-	writeJSON(w, 200, s.authOp(a.Owner, fmt.Sprintf("%s agent %q", verb, a.Name), oc, onSuccess, nil))
+	s.authOp(w, a.Owner, fmt.Sprintf("%s agent %q", verb, a.Name), oc, onSuccess, nil)
 }
 
 func (s *Server) handlePrepareRevoke(w http.ResponseWriter, r *http.Request) {
@@ -466,6 +478,10 @@ func (s *Server) handlePrepareRestore(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleCreateKey(w http.ResponseWriter, r *http.Request) {
 	a, ok := s.ownedAgent(w, r)
 	if !ok {
+		return
+	}
+	if max := s.cfg.Limits.KeysPerAgent; max > 0 && s.db.CountAPIKeys(a.ID) >= max {
+		writeErr(w, http.StatusConflict, "limit_reached", fmt.Sprintf("at most %d active API keys per agent; revoke an old one first", max))
 		return
 	}
 	key, prefix, err := s.db.CreateAPIKey(a.ID)

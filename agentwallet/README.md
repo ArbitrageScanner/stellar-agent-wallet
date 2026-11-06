@@ -36,7 +36,14 @@ Other protections:
 - **Signing is two-phase and bound to the user.** The server prepares the exact transaction or auth preimage. It accepts only a signature that verifies against that preimage and the signed-in user's key, and each op is single use with a ~10 minute expiry.
 - **Revoking is immediate at the service level.** The agent's API keys stop working at once. On-chain, `valid_until` expires the rule within ~2 minutes as a hard stop, even against a compromised service.
 - **Payments above `APPROVAL_THRESHOLD`** need a human approve click in the chat, or MCP elicitation.
-- **Rate limits** on sign-in, deploys, chat and payments per agent.
+- **Abuse limits**, all configurable (see [.env.example](.env.example)):
+  - chat: 50 messages per wallet per day and 150 per IP, at most 4000 characters per message;
+  - model: a service-wide daily budget of model calls, `max_tokens` per reply, and only the latest 30 messages sent per turn;
+  - concurrency: at most 3 chats answering at once per wallet;
+  - tools: per-agent rate limits on tool calls and payments;
+  - operations: limits on wallet operations, unsigned ops, new agent wallets per IP, agents per wallet and API keys per agent.
+
+  Daily counters live in the database, so a restart does not reset them.
 - **Each user sees only their own** account, agents, conversations and payments. The testnet test checks this.
 
 - **Account addresses are recorded** at first sign-in and never re-derived, so rotating the keystore (and with it the deploying relayer) does not move existing users to new accounts.

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/ArbitrageScanner/stellar-agent-wallet/agentwallet/internal/agent"
 	"github.com/ArbitrageScanner/stellar-agent-wallet/agentwallet/internal/tools"
@@ -83,6 +84,11 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "invalid_argument", "message is empty")
 		return
 	}
+	lim := s.cfg.Limits
+	if lim.ChatMaxChars > 0 && utf8.RuneCountInString(req.Message) > lim.ChatMaxChars {
+		writeErr(w, http.StatusBadRequest, "message_too_long", fmt.Sprintf("messages are limited to %d characters", lim.ChatMaxChars))
+		return
+	}
 	owner := user(r)
 	a, err := s.db.Agent(req.AgentID)
 	if err != nil || a.Owner != owner || a.Status == "pending" {
@@ -111,6 +117,22 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer c.busy.Unlock()
+	if !s.chatBegin(owner) {
+		writeLimit(w, "rate_limited", fmt.Sprintf("at most %d chats can answer at once; wait for one to finish", lim.ChatConcurrent), lim.ChatConcurrent, nil)
+		return
+	}
+	defer s.chatEnd(owner)
+	// daily quotas: the network first, so a blocked IP doesn't use up the wallet's
+	if _, ok, err := s.db.Use("chat:ip:"+clientIP(r), lim.ChatDailyIP); err == nil && !ok {
+		writeLimit(w, "daily_limit_reached", "the daily chat limit for this network is reached; it resets at midnight UTC", lim.ChatDailyIP, map[string]any{"resets_at": nextUTCDay()})
+		return
+	}
+	used, ok, err := s.db.Use("chat:wallet:"+owner, lim.ChatDailyWallet)
+	if err == nil && !ok {
+		writeLimit(w, "daily_limit_reached", fmt.Sprintf("you have used all %d chat messages for today; they reset at midnight UTC", lim.ChatDailyWallet), lim.ChatDailyWallet,
+			map[string]any{"used": used, "resets_at": nextUTCDay()})
+		return
+	}
 
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -139,7 +161,7 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 
 	c.mu.Lock()
 	c.Messages = append(c.Messages, agent.Text("user", req.Message))
-	history := append([]agent.Message(nil), c.Messages...)
+	history := trimHistory(c.Messages, lim.ChatHistory)
 	c.mu.Unlock()
 
 	approve := func(ctx context.Context, ap tools.Approval) (bool, error) {
@@ -171,7 +193,39 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 		log.Printf("chat %s: %v", c.ID, err)
 		out.send("error", map[string]any{"message": err.Error()})
 	}
-	out.send("done", map[string]any{})
+	out.send("done", map[string]any{"usage": map[string]any{"used": used, "limit": lim.ChatDailyWallet, "resets_at": nextUTCDay()}})
+}
+
+// trimHistory keeps the system prompt and at most max of the latest messages,
+// starting at a user message so no tool result loses its call. The full
+// conversation stays on the server for the UI; only the model sees less.
+func trimHistory(msgs []agent.Message, max int) []agent.Message {
+	if max <= 0 || len(msgs) <= max+1 {
+		return append([]agent.Message(nil), msgs...)
+	}
+	tail := msgs[len(msgs)-max:]
+	for len(tail) > 1 && tail[0].Role != "user" {
+		tail = tail[1:]
+	}
+	return append([]agent.Message{msgs[0]}, tail...)
+}
+
+func (s *Server) chatBegin(owner string) bool {
+	s.chatMu.Lock()
+	defer s.chatMu.Unlock()
+	if max := s.cfg.Limits.ChatConcurrent; max > 0 && s.chatActive[owner] >= max {
+		return false
+	}
+	s.chatActive[owner]++
+	return true
+}
+
+func (s *Server) chatEnd(owner string) {
+	s.chatMu.Lock()
+	defer s.chatMu.Unlock()
+	if s.chatActive[owner]--; s.chatActive[owner] <= 0 {
+		delete(s.chatActive, owner)
+	}
 }
 
 func (s *Server) handleApproval(w http.ResponseWriter, r *http.Request) {
@@ -244,6 +298,9 @@ type guarded struct {
 func (g guarded) Tools() []tools.Tool { return g.reg.Tools() }
 
 func (g guarded) Call(ctx context.Context, name string, args map[string]any, approve tools.Approver, source string) tools.Result {
+	if max := g.s.cfg.Limits.MCPCallsPerMinute; max > 0 && !g.s.limiter.allow("tools:"+g.id, max, time.Minute) {
+		return tools.Result{Error: walletErr("rate_limited", fmt.Sprintf("at most %d tool calls per minute for this agent", max))}
+	}
 	if name == "pay" {
 		if a, err := g.s.db.Agent(g.id); err != nil || a.Status != "active" {
 			return tools.Result{Error: walletErr("agent_inactive", "the owner revoked this agent")}

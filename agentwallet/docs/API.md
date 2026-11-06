@@ -47,7 +47,7 @@ Ops expire after about 10 minutes, and only the user who prepared an op can subm
 | `POST /api/auth/challenge` `{address}` | Returns a SEP-10 challenge as an op of `kind: "tx"`: `{op_id, xdr, hash, network_passphrase, expires_at}`. |
 | `POST /api/auth/login` `{op_id, signed_xdr? , signature?}` | Verifies the SEP-10 challenge and sets the `aw_session` cookie. Returns `{address}`. |
 | `POST /api/auth/logout` | Clears the session. |
-| `GET /api/me` 🔒 | `{address, account, account_deployed, wallet: {xlm, usdc, usdc_trustline}, account_url}` |
+| `GET /api/me` 🔒 | `{address, account, account_deployed, wallet: {xlm, usdc, usdc_trustline}, account_url, chat: {used, limit, resets_at}}` (`chat` is today's chat quota) |
 | `POST /api/me/friendbot` 🔒 | Testnet only: funds the signed-in user's G account with test XLM through friendbot, which takes 10–20 s. Returns `{ok, wallet}` with the new balances. Limited to 3 calls per user and 10 per IP per hour (429 `rate_limited`). A friendbot failure returns 502 `friendbot_error`. |
 
 ## Config
@@ -56,7 +56,8 @@ Ops expire after about 10 minutes, and only the user who prepared an op can subm
 ```json
 { "network": "testnet", "network_passphrase": "…", "explorer": "…", "usdc_contract": "C…",
   "default_model": "…", "llm_configured": true, "approval_threshold": "2",
-  "dev_wallet": false, "demo_payee": "G…", "period_ledgers": 17280, "ledger_seconds": 5 }
+  "dev_wallet": false, "demo_payee": "G…", "period_ledgers": 17280, "ledger_seconds": 5,
+  "limits": { "chat_max_chars": 4000, "chat_daily": 50 } }
 ```
 - `dev_wallet: true` only when the server runs with `DEV_WALLET=true`, for tests. The UI may then offer an in-browser test key: a raw ed25519 key that signs `hash` and is funded by friendbot through `POST /api/dev/fund {address}`.
 
@@ -114,7 +115,7 @@ Ops expire after about 10 minutes, and only the user who prepared an op can subm
 | `approval_required` | `{approval_id, tool_call_id, summary, to, amount, asset}` |
 | `approval_resolved` | `{approval_id, approved}` |
 | `error` | `{message}` |
-| `done` | `{}` |
+| `done` | `{usage: {used, limit, resets_at}}`: today's chat quota after this message |
 
 - `POST /api/chat/{conversation_id}/approvals/{approval_id}` `{approve}` → `{ok}`.
 - `GET /api/conversations/{id}` → `{id, agent_id, messages:[…]}`. Conversations are private to their user.
@@ -136,7 +137,11 @@ The tools and their result shapes are the same as in the single-wallet version: 
 | 403 | `csrf` | non-GET `/api/*` without `X-Agentwallet: 1` |
 | 404 | `not_found` | an unknown agent, op, conversation or key, or one that belongs to another user |
 | 409 | `account_missing` | an account endpoint before `POST /api/account` |
-| 429 | `rate_limited` | sign-in, deploy, chat or friendbot rate limits |
+| 429 | `rate_limited` | per-minute or per-hour limits: sign-in, chat, tool calls, wallet operations, friendbot, concurrent chats |
+| 429 | `daily_limit_reached` | daily quotas: chat messages per wallet or IP, new agent wallets per IP. `details` has `{limit, used?, resets_at}` |
+| 429 | `too_many_pending_ops` | too many unsigned operations waiting for this wallet |
+| 400 | `message_too_long` | chat message over `limits.chat_max_chars` |
+| 409 | `limit_reached` | agents per wallet or active API keys per agent |
 | 502 | `rpc_error` | Stellar RPC failures |
 
 Wallet and contract errors inside op results and tool results use the codes listed under Tools: `spending_limit_exceeded`, `insufficient_balance`, `agent_inactive`, `payee_no_trustline`, `signature_invalid`, `tx_failed` and so on.

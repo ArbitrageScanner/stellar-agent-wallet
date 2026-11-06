@@ -71,6 +71,12 @@ CREATE TABLE IF NOT EXISTS payments (
   source          TEXT
 );
 CREATE INDEX IF NOT EXISTS payments_owner ON payments(owner, created_at);
+CREATE TABLE IF NOT EXISTS usage (
+  day TEXT NOT NULL,
+  key TEXT NOT NULL,
+  n   INTEGER NOT NULL,
+  PRIMARY KEY (day, key)
+);
 CREATE UNIQUE INDEX IF NOT EXISTS payments_idem ON payments(agent_id, idempotency_key) WHERE idempotency_key IS NOT NULL AND idempotency_key != '';
 `
 
@@ -403,4 +409,51 @@ func (l AgentLog) ByIdempotencyKey(key string) (Payment, bool) {
 		return Payment{}, false
 	}
 	return ps[0], true
+}
+
+// ---------------------------------------------------------------- daily quotas
+
+// Day is the UTC day quotas are counted in.
+func Day(t time.Time) string { return t.UTC().Format("2006-01-02") }
+
+// Use counts one use of key today if fewer than limit were counted; ok is
+// false (and nothing is counted) once the limit is reached. Counters live in
+// the db so a restart doesn't reset them.
+func (d *DB) Use(key string, limit int) (used int, ok bool, err error) {
+	if limit <= 0 {
+		return 0, true, nil // unlimited
+	}
+	day := Day(time.Now())
+	err = d.sql.QueryRow(`INSERT INTO usage(day, key, n) VALUES(?, ?, 1)
+		ON CONFLICT(day, key) DO UPDATE SET n = n + 1 WHERE n < ? RETURNING n`, day, key, limit).Scan(&used)
+	if errors.Is(err, sql.ErrNoRows) {
+		return limit, false, nil
+	}
+	return used, err == nil, err
+}
+
+// Used is today's count for key.
+func (d *DB) Used(key string) int {
+	var n int
+	_ = d.sql.QueryRow(`SELECT n FROM usage WHERE day=? AND key=?`, Day(time.Now()), key).Scan(&n)
+	return n
+}
+
+// PruneUsage drops counters older than a week.
+func (d *DB) PruneUsage() {
+	_, _ = d.sql.Exec(`DELETE FROM usage WHERE day < ?`, Day(time.Now().AddDate(0, 0, -7)))
+}
+
+// CountAgents counts an owner's agents, pending ones included.
+func (d *DB) CountAgents(owner string) int {
+	var n int
+	_ = d.sql.QueryRow(`SELECT COUNT(*) FROM agents WHERE owner=?`, owner).Scan(&n)
+	return n
+}
+
+// CountAPIKeys counts an agent's active API keys.
+func (d *DB) CountAPIKeys(agentID string) int {
+	var n int
+	_ = d.sql.QueryRow(`SELECT COUNT(*) FROM api_keys WHERE agent_id=? AND revoked_at IS NULL`, agentID).Scan(&n)
+	return n
 }

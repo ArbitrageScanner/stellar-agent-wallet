@@ -40,8 +40,7 @@ func (s *Server) handleChallenge(w http.ResponseWriter, r *http.Request) {
 	}
 	b64, _ := tx.Base64()
 	h, _ := tx.Hash(s.cfg.Wallet.Passphrase)
-	o := s.addOp(&op{owner: req.Address, kind: "challenge", summary: "Sign in to agentwallet", xdr: b64, hash: h[:], expires: time.Now().Add(5 * time.Minute)})
-	writeJSON(w, 200, o.public(s))
+	s.sendOp(w, &op{owner: req.Address, kind: "challenge", summary: "Sign in to agentwallet", xdr: b64, hash: h[:], expires: time.Now().Add(5 * time.Minute)})
 }
 
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
@@ -151,6 +150,7 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 		"address": addr, "account": account, "account_deployed": deployed, "wallet": bal,
 		"account_url": s.cfg.Wallet.Explorer + "/contract/" + account,
 		"address_url": s.cfg.Wallet.Explorer + "/account/" + addr,
+		"chat":        map[string]any{"used": s.db.Used("chat:wallet:" + addr), "limit": s.cfg.Limits.ChatDailyWallet, "resets_at": nextUTCDay()},
 	})
 }
 

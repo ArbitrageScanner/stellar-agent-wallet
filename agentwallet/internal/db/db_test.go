@@ -69,3 +69,28 @@ func TestTokensStoredHashed(t *testing.T) {
 		t.Fatal("deleted session still valid")
 	}
 }
+
+func TestDailyUse(t *testing.T) {
+	d, err := Open(filepath.Join(t.TempDir(), "u.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+	for i := 1; i <= 3; i++ {
+		if n, ok, err := d.Use("chat:G1", 3); err != nil || !ok || n != i {
+			t.Fatalf("use %d: n=%d ok=%v err=%v", i, n, ok, err)
+		}
+	}
+	if _, ok, _ := d.Use("chat:G1", 3); ok {
+		t.Fatal("4th use allowed over a limit of 3")
+	}
+	if d.Used("chat:G1") != 3 {
+		t.Fatalf("used = %d", d.Used("chat:G1"))
+	}
+	if _, ok, _ := d.Use("chat:G2", 3); !ok {
+		t.Fatal("keys are independent")
+	}
+	if _, ok, _ := d.Use("x", 0); !ok {
+		t.Fatal("limit 0 means unlimited")
+	}
+}
