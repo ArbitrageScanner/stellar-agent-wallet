@@ -1,0 +1,54 @@
+# agentwallet behind Caddy (automatic HTTPS) on a single Docker host.
+#
+# State lives in ./data (SQLite + sealed keystore) and the master key in
+# ./secrets/master.key. Both are created once by bootstrap-host.sh (as root,
+# owned by the container's uid 65532); deploys never touch them.
+#
+#   cp .env.example .env && docker compose up -d
+services:
+  caddy:
+    image: caddy:2.8-alpine
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN (public hostname)}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [agentwallet]
+    restart: unless-stopped
+    logging: &logging
+      driver: json-file
+      options: { max-size: "50m", max-file: "5" }
+
+  agentwallet:
+    image: ${AGENTWALLET_IMAGE:-agentwallet:latest}
+    build: { context: ../agentwallet }
+    command: ["serve"]
+    environment:
+      PUBLIC_URL: https://${DOMAIN}
+      TRUST_PROXY: "true"                    # client IPs for rate limits come from Caddy
+      # OpenAI-compatible chat API. Both names: builds before the LLM_* rename read OPENROUTER_*.
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://openrouter.ai/api/v1}
+      OPENROUTER_API_KEY: ${LLM_API_KEY:-}
+      OPENROUTER_URL: ${LLM_BASE_URL:-https://openrouter.ai/api/v1}
+      MODEL: ${MODEL:-openai/gpt-4o-mini}
+      APPROVAL_THRESHOLD: ${APPROVAL_THRESHOLD:-2}
+      RELAYERS: ${RELAYERS:-3}
+      RPC_URL: ${RPC_URL:-https://soroban-testnet.stellar.org}
+      DEV_WALLET: "false"
+    volumes:
+      - ./data:/data
+      - ./deployment.json:/config/deployment.json:ro
+      - ./secrets/master.key:/run/secrets/agentwallet_master_key:ro
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    expose: ["8090"]                         # only Caddy reaches it
+    restart: unless-stopped
+    logging: *logging
+
+volumes:
+  caddy_data:
+  caddy_config:
