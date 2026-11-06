@@ -1,0 +1,15 @@
+{
+  "name": "agentwallet-web-e2e",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Mock server and headless-Chromium smoke test for the agentwallet UI",
+  "type": "module",
+  "scripts": {
+    "mock": "node mock.mjs",
+    "setup": "bash setup-chromium.sh",
+    "test": "bash run-e2e.sh"
+  },
+  "devDependencies": {
+    "playwright-core": "1.56.1"
+  }
+}
