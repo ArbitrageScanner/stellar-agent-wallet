@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Agent Wallet, Stellar testnet</title>
+  <meta name="description" content="Give your AI agents a wallet with on-chain spending limits: your own OpenZeppelin smart account on Stellar testnet, controlled by your wallet, with a daily USDC limit per agent.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="fonts/ranade-500.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/doto-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="css/app.css">
+  <script src="js/theme-init.js"></script>
+  <script type="module" src="js/app.js"></script>
+</head>
+<body data-view="boot">
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="#" aria-label="Agent Wallet, home">
+        <span class="brand-mark" aria-hidden="true"><span class="led"></span></span>
+        <span class="brand-text">
+          <span class="brand-name">agentwallet</span>
+          <span class="brand-sub">Stellar <span class="net-pill" id="net-pill">testnet</span></span>
+        </span>
+      </a>
+
+      <nav class="tabs" aria-label="Sections" id="tabs"></nav>
+
+      <div class="user-area" id="user-area" hidden>
+        <span class="user-chip" id="user-chip" data-testid="user-chip"></span>
+        <button class="icon-btn" id="logout-btn" type="button" aria-label="Sign out" title="Sign out" data-testid="logout"></button>
+      </div>
+
+      <button class="icon-btn theme-toggle" id="theme-toggle" type="button" aria-label="Toggle theme" title="Toggle theme">
+        <svg class="ico-sun" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <svg class="ico-moon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M20 14.6A8.2 8.2 0 0 1 9.4 4a8.2 8.2 0 1 0 10.6 10.6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="global-banner" id="global-banner" hidden></div>
+
+  <main class="main" id="main">
+    <!-- Boot -->
+    <section class="view view-boot" id="view-boot">
+      <div class="state-box state-loading"><span class="spinner"></span> Loading…</div>
+    </section>
+
+    <!-- Signed out -->
+    <section class="view view-landing" id="view-landing" hidden>
+      <div class="hero">
+        <div class="hero-copy">
+          <h1 class="hero-title">A spending limit built like hardware.</h1>
+          <p class="hero-text">Each AI agent gets its own key and a daily USDC cap. Your smart account enforces it, and no prompt can move the stop.</p>
+          <div class="hero-actions">
+            <button class="btn btn-primary btn-lg" id="connect-freighter" type="button" data-testid="connect-freighter">
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H18v3M4 7.5v10A1.5 1.5 0 0 0 5.5 19h13a1.5 1.5 0 0 0 1.5-1.5V9.5A1.5 1.5 0 0 0 18.5 8H6.5A2.5 2.5 0 0 1 4 7.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="16" cy="13.5" r="1.3" fill="currentColor"/></svg>
+              Connect Freighter
+            </button>
+            <button class="btn btn-lg" id="use-test-key" type="button" data-testid="use-test-key" hidden>
+              <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><circle cx="8" cy="15" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M11 12l8-8M16 7l2.5 2.5M14 9l2 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+              Use a test key
+            </button>
+          </div>
+          <p class="test-key-note muted small" id="test-key-note" hidden>
+            <span class="tag tag-warn">Test key</span>
+            A throwaway ed25519 key made in this browser tab and funded by friendbot. For testing only, never for real funds.
+            <span id="test-key-existing"></span>
+          </p>
+          <div class="login-status" id="login-status" aria-live="polite" hidden></div>
+        </div>
+
+        <figure class="device" role="img" aria-label="An agent wallet with a 5 USDC daily limit: 2 USDC spent, 3 left, and a 10 USDC payment refused by the contract with error 3221.">
+          <div class="lcd" aria-hidden="true">
+            <div class="lcd-row"><span>shopping bot, rule 1</span><span>limit 5.00 a day</span></div>
+            <div><span class="lcd-num">3.00</span><span class="lcd-unit">left</span></div>
+            <div class="seg"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            <div class="lcd-msg">✕ 10.00 refused by contract, #3221</div>
+          </div>
+          <div class="device-pad" aria-hidden="true">
+            <div class="slider"><span class="knob"></span><span class="stop"></span></div>
+            <span class="btn btn-danger btn-sm device-key">Revoke</span>
+          </div>
+          <div class="slider-scale" aria-hidden="true"><span>0</span><span>spent 2.00</span><span>stop 5.00</span></div>
+          <figcaption class="device-cap">
+            <p>13:24 paid 2.00 to GB3W…EBN6, tx c89abc…7a67</p>
+            <p>13:23 tried 10.00, refused by the policy, tx 1c3662…0505</p>
+            <p>From the testnet run on 5 November 2026.</p>
+          </figcaption>
+        </figure>
+      </div>
+
+      <dl class="spec" aria-label="How the wallet is built">
+        <div><dt>owner key</dt><dd>Your wallet, the only admin. The service never sees it.</dd></div>
+        <div><dt>agent key</dt><dd>One per agent, on its own rule of your smart account.</dd></div>
+        <div><dt>daily limit</dt><dd>Checked on-chain in <code>__check_auth</code>, on every payment.</dd></div>
+        <div><dt>connect</dt><dd>Chat here, or Claude Code and any MCP client with a per-agent key.</dd></div>
+      </dl>
+    </section>
+
+    <!-- Onboarding -->
+    <section class="view view-onboarding" id="view-onboarding" hidden>
+      <div class="page-head">
+        <h2>Set up your agent wallet</h2>
+        <p class="muted">Two steps: deploy your smart account, then move some test USDC into it.</p>
+      </div>
+      <ol class="steps" id="onboarding-steps"></ol>
+    </section>
+
+    <!-- Dashboard -->
+    <section class="view view-dashboard" id="view-dashboard" hidden>
+      <div class="dash-grid">
+        <div class="dash-main">
+          <div id="account-card"></div>
+          <section class="agents-sec" aria-labelledby="agents-title">
+            <div class="card-head agents-head">
+              <h3 id="agents-title">Agents <span class="count" id="agents-count"></span></h3>
+              <button class="btn btn-sm" type="button" id="add-agent-jump">
+                <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                Add an agent
+              </button>
+            </div>
+            <div class="agent-list" id="agent-list" data-testid="agent-list"></div>
+
+            <form class="add-agent" id="add-agent-form" data-testid="add-agent-form" autocomplete="off" novalidate>
+              <div class="card-head"><h3>Add an agent</h3></div>
+              <p class="muted small">Adds a rule to your smart account with a fresh agent key and a daily limit. You sign it in your wallet.</p>
+              <div class="add-agent-row">
+                <label class="field">
+                  <span class="field-label">Name</span>
+                  <input class="input" id="agent-name" name="name" type="text" maxlength="40" placeholder="Shopping bot" required>
+                </label>
+                <label class="field">
+                  <span class="field-label">Daily limit</span>
+                  <span class="input-affix"><input class="input" id="agent-limit" name="daily_limit" type="text" inputmode="decimal" placeholder="5" value="5" required><span>USDC</span></span>
+                </label>
+                <label class="field">
+                  <span class="field-label">Valid for <span class="muted">(optional)</span></span>
+                  <span class="input-affix"><input class="input" id="agent-days" name="valid_days" type="text" inputmode="numeric" placeholder="no expiry"><span>days</span></span>
+                </label>
+                <button class="btn btn-primary" type="submit">Add agent</button>
+              </div>
+              <div class="field-err" id="add-agent-err" role="alert"></div>
+            </form>
+          </section>
+        </div>
+        <div class="dash-side">
+          <section class="card payments-card" aria-labelledby="payments-title">
+            <div class="card-head">
+              <h3 id="payments-title">Payments tape</h3>
+              <label class="select-wrap">
+                <span class="sr-only">Filter by agent</span>
+                <select id="payments-filter" data-testid="payments-filter"><option value="">All agents</option></select>
+              </label>
+            </div>
+            <div id="payments-list"></div>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <!-- Chat -->
+    <section class="view view-chat-wrap" id="view-chat" hidden>
+      <div class="chat-layout">
+        <div class="view-chat">
+          <div class="chat-toolbar">
+            <label class="picker agent-picker">
+              <span class="sr-only">Agent</span>
+              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="5" y="8" width="14" height="11" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 4.5V8M9.5 13h.01M14.5 13h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              <select id="agent-select" aria-label="Agent" data-testid="agent-select"></select>
+            </label>
+            <label class="picker model-picker">
+              <span class="sr-only">Model</span>
+              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z M12 12l8-4.5 M12 12v9 M12 12L4 7.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+              <select id="model-select" aria-label="Model"><option value="">loading…</option></select>
+            </label>
+            <button class="btn btn-sm" id="new-chat" type="button" title="Start a new conversation">
+              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              <span>New chat</span>
+            </button>
+          </div>
+          <div class="notice notice-warn" id="llm-notice" hidden>
+            <strong>The chat model is not configured (LLM_API_KEY).</strong> The server cannot call the model, so the chat will not reply. Agents still work over MCP.
+          </div>
+          <div class="notice notice-danger" id="agent-inactive-notice" hidden></div>
+
+          <div class="chat-log" id="chat-log" aria-live="polite" aria-busy="false">
+            <div class="empty-state" id="empty-state">
+              <div class="empty-hero" aria-hidden="true"><span class="lcd"><span class="lcd-num">ready</span></span></div>
+              <h1 class="empty-title" id="empty-title">Chat with your agent</h1>
+              <p class="empty-text">The agent pays USDC from your smart account but cannot go over its daily limit: the contract itself enforces it. Try one of these:</p>
+              <div class="chips" id="chips"></div>
+            </div>
+          </div>
+
+          <div class="appr-bar" id="appr-bar" role="alert" data-testid="approval-bar" hidden></div>
+          <div class="suggest" id="suggest" aria-label="Suggested messages" hidden></div>
+          <form class="composer" id="composer" autocomplete="off">
+            <label for="composer-input" class="sr-only">Message</label>
+            <textarea id="composer-input" rows="1" placeholder="Message the agent…" title="Enter to send, Shift+Enter for a new line" enterkeyhint="send"></textarea>
+            <button class="send-btn" id="send-btn" type="submit" aria-label="Send" title="Send">
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 12l15-7-5.5 15-2.6-6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+            </button>
+            <button class="send-btn stop-btn" id="stop-btn" type="button" aria-label="Stop" title="Stop" hidden>
+              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>
+            </button>
+          </form>
+        </div>
+        <aside class="agent-panel" id="agent-panel" aria-label="Selected agent"></aside>
+      </div>
+      <div class="chat-none" id="chat-none" hidden>
+        <div class="state-box">
+          <div class="state-title">No agents yet</div>
+          <div class="state-text">Add an agent on the dashboard first. Each agent gets its own key and daily limit.</div>
+          <a class="btn btn-primary" href="#dashboard">Go to the dashboard</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- How it works -->
+    <section class="view view-how" id="view-how" hidden>
+      <div class="page-head">
+        <h2>How it works</h2>
+        <p class="muted">An agent can make mistakes or fall for a prompt injection. That is why its limit lives in your smart account, not in a prompt, and why only your wallet can change it.</p>
+      </div>
+      <div class="how-grid">
+        <figure class="card diagram-card">
+          <svg class="diagram" viewBox="0 0 400 760" role="img" aria-labelledby="dg-title dg-desc">
+            <title id="dg-title">Who controls what</title>
+            <desc id="dg-desc">Your Freighter wallet signs owner operations and the AI agent calls tools with its API key. The agentwallet service prepares operations, keeps agent keys encrypted and API keys hashed, and never holds your owner key. On-chain, your smart account routes owner operations to rule 0, a Delegated signer for your G address, and agent payments to that agent’s own rule, where the ed25519 verifier and the spending-limit policy decide whether the USDC transfer goes through.</desc>
+            <defs>
+              <marker id="dg-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="dg-arrowhead"/></marker>
+            </defs>
+            <rect class="dg-zone" x="10" y="10" width="380" height="304" rx="16"/>
+            <text class="dg-zone-label" x="26" y="32">off-chain</text>
+            <rect class="dg-zone dg-zone-chain" x="10" y="344" width="380" height="406" rx="16"/>
+            <text class="dg-zone-label" x="26" y="366">on-chain, Soroban</text>
+
+            <g class="dg-node dg-owner"><rect x="24" y="46" width="170" height="58" rx="12"/><text class="dg-t" x="109" y="70">You, Freighter</text><text class="dg-s" x="109" y="89">holds the owner key</text></g>
+            <g class="dg-node"><rect x="206" y="46" width="170" height="58" rx="12"/><text class="dg-t" x="291" y="70">AI agent</text><text class="dg-s" x="291" y="89">chat here or over MCP</text></g>
+
+            <path class="dg-edge dg-edge-owner" d="M109 104v52" marker-end="url(#dg-arrow)"/>
+            <text class="dg-l" x="115" y="134">signs owner ops</text>
+            <path class="dg-edge" d="M291 104v52" marker-end="url(#dg-arrow)"/>
+            <text class="dg-l" x="297" y="134">Bearer awk_…</text>
+
+            <g class="dg-node dg-accent"><rect x="24" y="160" width="352" height="134" rx="12"/>
+              <text class="dg-t" x="200" y="186">agentwallet service</text>
+              <text class="dg-s" x="200" y="210">prepares ops, relays your signed ones</text>
+              <text class="dg-s" x="200" y="230">API keys stored hashed, one per agent</text>
+              <text class="dg-s" x="200" y="250">agent keys encrypted at rest</text>
+              <text class="dg-s dg-strong" x="200" y="274">never holds your owner key</text>
+            </g>
+
+            <path class="dg-edge" d="M200 294v84" marker-end="url(#dg-arrow)"/>
+
+            <g class="dg-node"><rect x="24" y="382" width="352" height="54" rx="12"/><text class="dg-t" x="200" y="404">Your smart account, __check_auth</text><text class="dg-s" x="200" y="422">one C… per user, holds the USDC</text></g>
+
+            <path class="dg-edge dg-edge-owner" d="M109 436v30" marker-end="url(#dg-arrow)"/>
+            <path class="dg-edge" d="M291 436v30" marker-end="url(#dg-arrow)"/>
+
+            <g class="dg-node dg-owner"><rect x="24" y="470" width="170" height="66" rx="12"/><text class="dg-t" x="109" y="494">Rule 0, Default</text><text class="dg-s" x="109" y="512">Delegated(your G)</text><text class="dg-s" x="109" y="527">admin: agents and funds</text></g>
+            <g class="dg-node"><rect x="206" y="470" width="170" height="66" rx="12"/><text class="dg-t" x="291" y="494">Rules 1 to n</text><text class="dg-s" x="291" y="512">CallContract(USDC)</text><text class="dg-s" x="291" y="527">one agent key each</text></g>
+
+            <path class="dg-edge" d="M291 536v26" marker-end="url(#dg-arrow)"/>
+            <g class="dg-node dg-accent"><rect x="206" y="566" width="170" height="58" rx="12"/><text class="dg-t" x="291" y="590">Spending limit</text><text class="dg-s" x="291" y="608">N USDC per ~1 day</text></g>
+
+            <g class="dg-note"><rect x="24" y="566" width="170" height="58" rx="12"/><text class="dg-s" x="109" y="591">the agent cannot</text><text class="dg-s" x="109" y="607">change its own rule</text></g>
+
+            <path class="dg-edge" d="M250 624v20H115v22" marker-end="url(#dg-arrow)"/>
+            <path class="dg-edge" d="M330 624v42" marker-end="url(#dg-arrow)"/>
+            <g class="dg-out dg-ok"><rect x="24" y="670" width="170" height="36" rx="10"/><text x="109" y="693">USDC.transfer</text></g>
+            <g class="dg-out dg-bad"><rect x="206" y="670" width="170" height="36" rx="10"/><text x="291" y="693">Error(Contract, #3221)</text></g>
+            <text class="dg-l dg-l-c" x="109" y="730">within the limit</text>
+            <text class="dg-l dg-l-c" x="291" y="730">over the limit</text>
+          </svg>
+          <figcaption class="muted small">Owner operations need your wallet’s signature on rule 0. Agent payments go through the agent’s own rule, and the contract rejects anything over its limit.</figcaption>
+        </figure>
+        <div class="how-points">
+          <ul class="points">
+            <li><span><strong>Your wallet owns the account.</strong> Each user gets an OpenZeppelin smart account whose address is derived from their G address. Rule 0 (Default) has a single <code>Delegated</code> signer: your G address. Adding or revoking agents, changing limits and withdrawing all need your wallet’s signature.</span></li>
+            <li><span><strong>The service never holds the owner key.</strong> It prepares each operation and shows you its summary; you sign the transaction or authorization entry in Freighter, and the relayer submits it and pays the fee.</span></li>
+            <li><span><strong>Each agent is a rule with its own key.</strong> A <code>CallContract(USDC)</code> context rule with one ed25519 agent key. The agent can call USDC and nothing else, and cannot touch its own rule or any other.</span></li>
+            <li><span><strong>Each agent has an on-chain limit.</strong> A spending-limit policy allows N USDC per <span id="how-period">17280 ledgers (~1 day)</span>. Going over fails with <code>Error(Contract, #3221)</code>, and no prompt can get around that.</span></li>
+            <li><span><strong>Agent keys are encrypted at rest.</strong> The service generates a fresh key per agent and stores it encrypted. It uses the key only to sign that agent’s payments (the AuthDigest checked in <code>__check_auth</code>).</span></li>
+            <li><span><strong>API keys are stored hashed.</strong> An external agent connects to <code>/mcp</code> with <code>Authorization: Bearer awk_…</code>. The key picks the agent, is shown once, and can be revoked at any time.</span></li>
+            <li><span><strong>Revoking is instant and on-chain.</strong> It sets the rule’s <code>valid_until</code> a few seconds ahead, after which the agent’s signatures stop passing. Restoring clears it.</span></li>
+            <li><span><strong>Large chat payments need your approval</strong> (above <span id="how-threshold">2</span> USDC). This off-chain check sits on top of the on-chain limit.</span></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <dialog class="modal" id="modal" aria-labelledby="modal-title">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2 id="modal-title"></h2>
+        <button class="icon-btn icon-btn-sm modal-x" id="modal-close" type="button" aria-label="Close" title="Close"></button>
+      </div>
+      <div class="modal-body" id="modal-body"></div>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>
