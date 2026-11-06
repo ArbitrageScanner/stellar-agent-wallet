@@ -267,6 +267,13 @@ try {
     await closeModal(page);
     await page.waitForFunction(() => document.querySelector('[data-testid=account-usdc-onb]')?.textContent === '8', null, { timeout: T });
     eq(await page.locator('[data-testid=wallet-usdc]').textContent(), '2', 'wallet USDC after funding');
+    await page.locator('[data-testid=step-3][data-state=active] [data-testid=onboarding-ready]').waitFor({ timeout: T });
+    assert(await page.locator('[data-testid=step-2][data-state=done]').count() === 1, 'funding step done once the wallet holds USDC');
+    assert(/Open the dashboard/.test(await text(page.locator('[data-testid=onboarding-done]'))), 'ready CTA in step 3');
+    eq(await page.locator('[data-testid=onboarding-done]').count(), 1, 'exactly one way to the dashboard');
+    assert(!/\bnull\b|undefined/.test(await text(page.locator('#onboarding-steps'))), 'no stray null/undefined text');
+    await page.waitForTimeout(700); // smooth scroll to the ready step
+    await page.screenshot({ path: path.join(SHOTS, 'desktop-onboarding-ready.png') });
     await page.locator('[data-testid=onboarding-done]').click();
     await view(page, 'dashboard');
     eq(await page.locator('[data-testid=account-balance]').textContent(), '8', 'dashboard balance');

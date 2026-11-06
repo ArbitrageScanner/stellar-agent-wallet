@@ -32,7 +32,7 @@ export function refreshAll() {
         ]);
         if (my !== gen) return;
         if (acc.status === 'fulfilled') { state.account = acc.value; onFresh('account'); emit('account', acc.value); }
-        if (ags.status === 'fulfilled') { state.agents = ags.value.items || []; state.agentsAt = Date.now(); onFresh('agents'); emit('agents', state.agents); }
+        if (ags.status === 'fulfilled') { state.agents = mergeFresh(ags.value.items || []); state.agentsAt = Date.now(); onFresh('agents'); emit('agents', state.agents); }
         if (pays.status === 'fulfilled') { state.payments = pays.value.items || []; emit('payments', state.payments); }
         const failed = [acc, ags, pays].find((r) => r.status === 'rejected');
         lastError = failed ? failed.reason : null;
@@ -85,6 +85,35 @@ let expectation = null; // { wallet: "5" | null, account: "5" | null, agents: sn
 let syncTimer = null;
 
 export const isSyncing = () => !!expectation;
+
+/* ---------- agents added a moment ago ----------
+ * The add-agent tx is confirmed before Stellar RPC returns the new rule, so
+ * the agent list can miss it (or show it without its limit) for a few
+ * seconds. Show the agent at once with what the user asked for, marked as
+ * syncing, until the server returns it complete. */
+const freshAgents = new Map(); // id -> { agent, until }
+
+export function addFreshAgent(agent) {
+  if (!agent || !agent.id) return;
+  freshAgents.set(agent.id, { agent: { ...agent, _syncing: true }, until: Date.now() + 120_000 });
+  state.agents = mergeFresh(state.agents || []);
+  emit('agents', state.agents);
+}
+
+function mergeFresh(list) {
+  if (!freshAgents.size) return list;
+  const out = list.slice();
+  for (const [id, f] of freshAgents) {
+    const i = out.findIndex((a) => a.id === id);
+    const got = i >= 0 ? out[i] : null;
+    const complete = got && got.status !== 'removed' && got.limit && got.limit.installed;
+    if (complete || Date.now() > f.until) { freshAgents.delete(id); continue; }
+    if (i >= 0) out[i] = f.agent; else out.push(f.agent);
+  }
+  return out;
+}
+/** True while a USDC balance shown is the expected one, not yet read back. */
+export const balancesSyncing = () => !!(expectation && (expectation.wallet !== null || expectation.account !== null));
 /** True while the agent list is expected to change (limits, status). */
 export const agentsSyncing = () => !!(expectation && expectation.agents !== null);
 
@@ -158,6 +187,7 @@ export function resetData() {
   inflight = null;
   queued = false;
   lastError = null;
+  freshAgents.clear();
   endSync(true);
   stopPolling();
   Object.assign(state, { me: null, account: null, agents: null, agentsAt: 0, payments: null, payFilter: '', chatAgent: null });

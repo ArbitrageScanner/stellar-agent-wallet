@@ -3,10 +3,11 @@
 
 import { api, describeError } from './api.js';
 import { state, on, emit, accountUrl } from './state.js';
-import { refreshAll, expectUsdc, isSyncing } from './data.js';
+import { refreshAll, expectUsdc, balancesSyncing } from './data.js';
 import { runOp, txLink } from './ops.js';
 import { h, icon, ICONS, fmtAmount, normAmount, extLink, waitLine } from './util.js';
 import { addrLine } from './widgets.js';
+import { isModalOpen } from './modal.js';
 
 let list;
 let deploying = false;
@@ -20,15 +21,41 @@ let goDashboard = () => {};
 export function initOnboarding({ onDone }) {
   goDashboard = onDone;
   list = document.getElementById('onboarding-steps');
-  // The funding panel updates itself; the step list is rebuilt only when the deploy state changes.
-  on('me', () => {
-    if (document.body.dataset.view === 'onboarding' && rendered !== !!(state.me && state.me.account_deployed)) renderOnboarding();
+  // The funding panel updates itself; the step list is rebuilt only when the
+  // deploy state or readiness (the account holds USDC) changes.
+  const maybe = () => {
+    if (document.body.dataset.view !== 'onboarding') return;
+    if (renderedKey !== stepsKey()) renderOnboarding();
+    else revealReady();
+  };
+  for (const evt of ['me', 'account', 'sync', 'modal-closed']) on(evt, maybe);
+}
+
+let renderedKey = null; // stepsKey() at the last render
+let wasReady = false;
+let revealPending = false; // scroll to the "ready" step once nothing covers it
+
+function stepsKey() {
+  const deployed = !!(state.me && state.me.account_deployed);
+  return `${deployed}:${deployed && (Number(accountUsdc()) || 0) > 0}`;
+}
+
+/** Brings the "open the dashboard" step into view the first time the wallet is ready. */
+function revealReady() {
+  if (!revealPending || isModalOpen()) return;
+  const cta = list && list.querySelector('[data-testid=onboarding-ready] [data-testid=onboarding-done]');
+  if (!cta) return;
+  revealPending = false;
+  requestAnimationFrame(() => {
+    cta.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    cta.focus({ preventScroll: true });
   });
 }
 
-let rendered = null; // account_deployed at the last render
-
 export function resetOnboarding() {
+  renderedKey = null;
+  wasReady = false;
+  revealPending = false;
   deploying = false;
   deployResult = null;
   deployError = null;
@@ -37,14 +64,30 @@ export function resetOnboarding() {
 export function renderOnboarding() {
   const me = state.me || {};
   const deployed = !!me.account_deployed;
-  rendered = deployed;
-  list.replaceChildren(
+  renderedKey = stepsKey();
+  const accUsdc = deployed ? Number(accountUsdc()) || 0 : 0;
+  const ready = deployed && accUsdc > 0;
+  const cta = ready
+    ? h('button', { class: 'btn btn-primary btn-lg', type: 'button', 'data-testid': 'onboarding-done', onClick: () => goDashboard() },
+      icon(ICONS.wallet), ' Open the dashboard')
+    : null;
+  list.replaceChildren(...[
     stepCard(1, 'Create my agent wallet', deployed ? 'done' : 'active', deployStep(me, deployed)),
-    stepCard(2, 'Fund it with test USDC', deployed ? 'active' : 'todo', deployed ? fundingPanel() : h('p', { class: 'muted' }, 'Available once your smart account is deployed.')),
-    h('li', { class: 'steps-foot' },
-      h('button', { class: 'btn btn-primary', type: 'button', 'data-testid': 'onboarding-done', disabled: !deployed, onClick: () => goDashboard() },
-        'Go to the dashboard'),
-      deployed ? h('span', { class: 'muted small' }, 'You can add funds later from the dashboard too.') : null));
+    stepCard(2, 'Fund it with test USDC', ready ? 'done' : deployed ? 'active' : 'todo', deployed ? fundingPanel() : h('p', { class: 'muted' }, 'Available once your smart account is deployed.')),
+    stepCard(3, 'Add your agents', ready ? 'active' : 'todo', ready
+      ? h('div', { class: 'stack', 'data-testid': 'onboarding-ready' },
+        h('p', {}, h('b', {}, 'Your agent wallet is ready'), ` with ${fmtAmount(accUsdc)} USDC. Next, open the dashboard and add your first agent with a daily limit; you sign it once in your wallet and get the agent's API key.`),
+        cta)
+      : h('p', { class: 'muted' }, 'Once your agent wallet holds USDC, you add agents with daily limits in the dashboard.')),
+    ready ? null : h('li', { class: 'steps-foot' },
+      h('button', { class: 'btn btn-ghost', type: 'button', 'data-testid': 'onboarding-done', disabled: !deployed, onClick: () => goDashboard() },
+        'Skip funding for now'),
+      deployed ? h('span', { class: 'muted small' }, 'You can add funds later from the dashboard too.') : null)].filter(Boolean));
+  // the moment the wallet becomes ready, bring the next step into view (after
+  // the fund op's modal, which is usually still open, is closed)
+  if (ready && !wasReady) revealPending = true;
+  wasReady = ready;
+  revealReady();
 }
 
 function stepCard(n, title, st, body) {
@@ -146,7 +189,7 @@ export function fundingPanel({ inModal = false } = {}) {
     const err = h('div', { class: 'field-err', role: 'alert' });
     const fundForm = h('form', { class: 'fund-row', novalidate: true },
       h('div', { class: 'input-affix' }, input, h('span', {}, 'USDC')),
-      h('button', { class: 'btn btn-primary', type: 'submit', 'data-testid': 'fund-account', disabled: usdc <= 0 }, icon(ICONS.down), 'Fund agent wallet'));
+      h('button', { class: (Number(accountUsdc()) || 0) > 0 && !inModal ? 'btn btn-ghost' : 'btn btn-primary', type: 'submit', 'data-testid': 'fund-account', disabled: usdc <= 0 }, icon(ICONS.down), (Number(accountUsdc()) || 0) > 0 ? 'Add more' : 'Fund agent wallet'));
     fundForm.addEventListener('submit', (e) => {
       e.preventDefault();
       const v = normAmount(input.value);
@@ -167,7 +210,7 @@ export function fundingPanel({ inModal = false } = {}) {
       });
     });
     const accUsdc = Number(accountUsdc()) || 0;
-    const syncing = isSyncing();
+    const syncing = balancesSyncing();
 
     root.replaceChildren(...[ // filtered: replaceChildren would print a null child as "null"
       h('div', { class: 'balances' },
@@ -183,10 +226,6 @@ export function fundingPanel({ inModal = false } = {}) {
           h('div', { class: 'bal-big' }, h('b', { 'data-testid': 'account-usdc-onb' }, fmtAmount(accountUsdc() ?? 0)), ' USDC'))),
       syncing ? h('div', { class: 'sync-note', 'data-testid': 'syncing', role: 'status' },
         h('span', { class: 'spinner' }), 'Confirmed on-chain. Stellar RPC is catching up, so the balances above are the expected ones for a few seconds.') : null,
-      !inModal && accUsdc > 0 ? h('div', { class: 'res res-ok', 'data-testid': 'fund-next' }, icon(ICONS.check),
-        h('span', {}, `Your agent wallet holds ${fmtAmount(accUsdc)} USDC. Next: `,
-          h('button', { class: 'linkish', type: 'button', onClick: () => goDashboard() }, 'open the dashboard'),
-          ' and add your first agent with a daily limit.')) : null,
       noXlm ? h('div', { class: 'notice notice-warn', 'data-testid': 'friendbot-notice' },
         h('strong', {}, 'Your wallet has no XLM yet.'), ' Buying test USDC costs a little XLM. Get free test XLM from friendbot. ',
         h('span', { class: 'row-inline' },

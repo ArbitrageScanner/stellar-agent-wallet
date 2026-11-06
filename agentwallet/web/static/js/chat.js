@@ -5,7 +5,7 @@
 import { api, chatStream, describeError } from './api.js';
 import { state, on, accountUrl, agentById, ledgerSeconds } from './state.js';
 import { renderMarkdown } from './markdown.js';
-import { refreshAll, expectUsdc, isSyncing, agentsSyncing } from './data.js';
+import { refreshAll, expectUsdc, balancesSyncing, agentsSyncing } from './data.js';
 import { statusBadge, limitGauge, payItem, addrLine, segBar } from './widgets.js';
 import { h, icon, ICONS, short, fmtAmount, fmtApprox, fmtPeriod, plural, store, extLink, parseMaybeJSON, copyBtn, waitLine, SLOW_RPC } from './util.js';
 
@@ -139,7 +139,7 @@ function renderPanel() {
   if (!a) { panel.replaceChildren(); panelKey = ''; return; }
   const acc = state.account;
   const bal = ((acc && acc.balances) || []).find((x) => /^usdc/i.test(x.asset || ''));
-  const syncing = isSyncing();
+  const syncing = balancesSyncing() || agentsSyncing();
   const key = JSON.stringify([a, bal, panelPayments, acc && acc.address, syncing, agentsSyncing()]);
   if (key === panelKey) return;
   panelKey = key;

@@ -99,6 +99,8 @@ await step('get 10 test USDC (user-signed tx) and fund the agent wallet with 8',
 
 let apiKey;
 await step('add agent "Shopping bot" 5 USDC/day (owner auth entry) -> API key shown once', async () => {
+  await page.locator('[data-testid=step-3][data-state=active] [data-testid=onboarding-ready]').waitFor({ timeout: T });
+  await page.screenshot({ path: path.join(SHOTS, 'real-onboarding-ready.png') });
   await page.locator('[data-testid=onboarding-done]').click();
   await view('dashboard');
   await page.locator('#agent-name').fill('Shopping bot');
@@ -110,6 +112,11 @@ await step('add agent "Shopping bot" 5 USDC/day (owner auth entry) -> API key sh
   apiKey = (await page.locator('#modal [data-testid=api-key]').textContent()).trim();
   if (!apiKey.startsWith('awk_')) throw new Error(`api key ${apiKey}`);
   await closeModal();
+  // the new agent must be on screen at once, before Stellar RPC lists it
+  await page.locator('[data-testid=agent-card]').first().waitFor({ timeout: 1500 });
+  const syncingNow = await page.locator('[data-testid=agent-syncing]').count();
+  console.log(`      agent card shown immediately${syncingNow ? ' (marked as syncing)' : ''}`);
+  await page.screenshot({ path: path.join(SHOTS, 'real-agent-added.png') });
   if ((await status()) !== 'active') throw new Error(`status ${await status()}`);
   await page.screenshot({ path: path.join(SHOTS, 'real-dashboard.png') });
 });

@@ -3,7 +3,7 @@
 
 import { api, describeError } from './api.js';
 import { state, on, accountUrl } from './state.js';
-import { refreshAll, refreshPayments, expectUsdc, isSyncing } from './data.js';
+import { refreshAll, refreshPayments, expectUsdc, balancesSyncing, addFreshAgent } from './data.js';
 import { runOp } from './ops.js';
 import { openModal, closeModal, promptAmount } from './modal.js';
 import { fundingPanel } from './onboarding.js';
@@ -66,7 +66,7 @@ function renderAccount() {
   const me = state.me;
   const acc = state.account;
   if (!me) return;
-  const key = JSON.stringify([me, acc && acc.balances, acc && acc.address, isDev(), isSyncing()]);
+  const key = JSON.stringify([me, acc && acc.balances, acc && acc.address, isDev(), balancesSyncing()]);
   if (key === lastAccountKey && el.firstChild) return;
   lastAccountKey = key;
   const address = (acc && acc.address) || me.account;
@@ -82,7 +82,7 @@ function renderAccount() {
         h('div', {},
           h('span', { class: 'lcd-num', 'data-testid': 'account-balance' }, acc ? fmtAmount(bal ?? 0) : '…'),
           h('span', { class: 'lcd-unit' }, ' USDC')),
-        h('div', { class: 'lcd-row' }, isSyncing()
+        h('div', { class: 'lcd-row' }, balancesSyncing()
           ? h('span', { 'data-testid': 'syncing' }, 'confirmed, waiting for Stellar RPC to catch up…')
           : h('span', {}, 'shared by all your agents'))),
       h('div', { class: 'account-actions' },
@@ -176,6 +176,8 @@ function agentCard(a) {
     pending
       ? h('div', { class: 'notice notice-warn small' }, h('strong', {}, 'Waiting for your signature.'), ' This agent becomes active once the add-agent operation is signed and submitted.')
       : limitGauge(lim, { at: state.agentsAt }),
+    a._syncing ? h('div', { class: 'sync-note', role: 'status', 'data-testid': 'agent-syncing' }, h('span', { class: 'spinner' }),
+      'Added on-chain. Waiting for Stellar RPC to list it with its limit; this usually takes a few seconds.') : null,
     h('div', { class: 'agent-stats muted small' },
       h('span', { 'data-testid': 'payments-count' }, `${a.payments_count ?? 0} ${plural(a.payments_count ?? 0, 'payment')}`),
       h('span', {}, `${keys.length} API ${plural(keys.length, 'key')}`)),
@@ -326,6 +328,13 @@ function addAgent(form) {
       form.reset();
       form.elements.daily_limit.value = '5';
       if (r.api_key) view.extra.replaceChildren(apiKeyReveal((r.agent && r.agent.name) || name, r.api_key));
+      if (r.agent && r.agent.id) {
+        const period = (state.config && state.config.period_ledgers) || 17280;
+        addFreshAgent({
+          payments_count: 0, api_keys: [], ...r.agent, name, status: 'active',
+          limit: { installed: true, limit, spent: '0', remaining: limit, period_ledgers: period, resets_in_seconds: null, history: [] },
+        });
+      }
       expectUsdc({ agents: true });
     },
     after: () => refreshAll(),

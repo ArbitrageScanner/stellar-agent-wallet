@@ -2,6 +2,7 @@
 // replaces its content (a form can turn into the op flow in place).
 
 import { h, icon, ICONS, normAmount } from './util.js';
+import { emit } from './state.js';
 
 let dlg, titleEl, bodyEl, closeBtn;
 let current = null; // {onClose, dismissible}
@@ -55,6 +56,7 @@ export function closeModal() {
   document.body.classList.remove('modal-open');
   bodyEl.replaceChildren();
   if (c && c.onClose) { try { c.onClose('closed'); } catch { /* ignore */ } }
+  emit('modal-closed');
 }
 
 export const isModalOpen = () => !!(dlg && dlg.open);
