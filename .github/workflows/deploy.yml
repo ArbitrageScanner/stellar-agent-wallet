@@ -1,0 +1,58 @@
+name: deploy
+
+# Called by ci.yml after a main commit's image is published, or run by hand
+# to redeploy / roll back to any published commit sha.
+#
+# Repository-level secrets and variables (ci.yml checks vars.DEPLOY_ENABLED on
+# a job without an environment, which only sees repository variables):
+#   secrets:   DEPLOY_SSH_KEY_B64, LLM_API_KEY (optional: enables the chat)
+#   variables: WALLET_HOST, WALLET_DOMAIN, DEPLOY_SSH_KNOWN_HOSTS,
+#              optional: WALLET_SSH_USER (deploy), LLM_BASE_URL, MODEL, APPROVAL_THRESHOLD
+# The host is prepared once with deploy/bootstrap-host.sh; the master key
+# stays on the host and is never handled by CI. See deploy/README.md.
+on:
+  workflow_call:
+    inputs:
+      image_tag: { type: string, required: true }
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: commit sha of a published image
+        required: true
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  wallet:
+    name: agent-wallet (docker, ${{ vars.WALLET_HOST }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ inputs.image_tag }}" }
+      - name: ssh
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s' "${{ secrets.DEPLOY_SSH_KEY_B64 }}" | base64 -d > ~/.ssh/deploy
+          chmod 600 ~/.ssh/deploy
+          printf '%s\n' "${{ vars.DEPLOY_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+      - name: deploy
+        env:
+          WALLET_SSH: ${{ vars.WALLET_SSH_USER || 'deploy' }}@${{ vars.WALLET_HOST }}
+          IMAGE_TAG: ${{ inputs.image_tag }}
+          DOMAIN: ${{ vars.WALLET_DOMAIN }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_BASE_URL: ${{ vars.LLM_BASE_URL }}
+          MODEL: ${{ vars.MODEL }}
+          APPROVAL_THRESHOLD: ${{ vars.APPROVAL_THRESHOLD }}
+          REGISTRY_USER: ${{ github.actor }}
+          REGISTRY_TOKEN: ${{ github.token }}
+        run: |
+          export SSH_OPTS="-i $HOME/.ssh/deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes"
+          IMAGE_PREFIX="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}" deploy/deploy.sh
